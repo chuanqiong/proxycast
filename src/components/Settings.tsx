@@ -56,7 +56,9 @@ export function Settings() {
       </div>
 
       {message && (
-        <div className={`rounded-lg border p-3 text-sm ${message.includes('失败') ? 'border-red-500 bg-red-50 text-red-700' : 'border-green-500 bg-green-50 text-green-700'}`}>
+        <div
+          className={`rounded-lg border p-3 text-sm ${message.includes("失败") ? "border-red-500 bg-red-50 text-red-700" : "border-green-500 bg-green-50 text-green-700"}`}
+        >
           {message}
         </div>
       )}
@@ -67,7 +69,12 @@ export function Settings() {
           <input
             type="text"
             value={config.server.host}
-            onChange={(e) => setConfig({ ...config, server: { ...config.server, host: e.target.value } })}
+            onChange={(e) =>
+              setConfig({
+                ...config,
+                server: { ...config.server, host: e.target.value },
+              })
+            }
             className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
           />
         </div>
@@ -78,7 +85,13 @@ export function Settings() {
             type="number"
             value={config.server.port}
             onChange={(e) =>
-              setConfig({ ...config, server: { ...config.server, port: parseInt(e.target.value) || 3001 } })
+              setConfig({
+                ...config,
+                server: {
+                  ...config.server,
+                  port: parseInt(e.target.value) || 3001,
+                },
+              })
             }
             className="w-full rounded-lg border bg-background px-3 py-2 text-sm"
           />
@@ -91,7 +104,12 @@ export function Settings() {
               <input
                 type={showApiKey ? "text" : "password"}
                 value={config.server.api_key}
-                onChange={(e) => setConfig({ ...config, server: { ...config.server, api_key: e.target.value } })}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    server: { ...config.server, api_key: e.target.value },
+                  })
+                }
                 className="w-full rounded-lg border bg-background px-3 py-2 pr-20 text-sm"
               />
               <div className="absolute right-2 top-1/2 flex -translate-y-1/2 gap-1">
@@ -101,7 +119,11 @@ export function Settings() {
                   className="rounded p-1 hover:bg-muted"
                   title={showApiKey ? "隐藏" : "显示"}
                 >
-                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showApiKey ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
                 <button
                   type="button"
@@ -109,7 +131,11 @@ export function Settings() {
                   className="rounded p-1 hover:bg-muted"
                   title="复制"
                 >
-                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  {copied ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>

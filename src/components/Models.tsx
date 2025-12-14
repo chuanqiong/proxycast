@@ -3,7 +3,10 @@ import { Cpu, RefreshCw, Copy, Check, Search } from "lucide-react";
 import { getAvailableModels, ModelInfo } from "@/hooks/useTauri";
 
 // 模型分组配置
-const MODEL_GROUPS: Record<string, { name: string; color: string; models: string[] }> = {
+const MODEL_GROUPS: Record<
+  string,
+  { name: string; color: string; models: string[] }
+> = {
   kiro: {
     name: "Kiro Claude",
     color: "bg-purple-100 text-purple-700",
@@ -70,7 +73,7 @@ export function Models() {
   const fetchModels = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const data = await getAvailableModels();
       setModels(data || []);
@@ -78,7 +81,7 @@ export function Models() {
       setError(e.toString());
       setModels([]);
     }
-    
+
     setLoading(false);
   };
 
@@ -90,12 +93,16 @@ export function Models() {
 
   const getModelGroup = (modelId: string): string | null => {
     for (const [groupId, group] of Object.entries(MODEL_GROUPS)) {
-      if (group.models.some(m => modelId.toLowerCase().includes(m.toLowerCase().split("-")[0]))) {
+      if (
+        group.models.some((m) =>
+          modelId.toLowerCase().includes(m.toLowerCase().split("-")[0]),
+        )
+      ) {
         return groupId;
       }
     }
     // 根据 owned_by 判断
-    const model = models.find(m => m.id === modelId);
+    const model = models.find((m) => m.id === modelId);
     if (model?.owned_by === "anthropic") return "kiro";
     if (model?.owned_by === "google") return "gemini";
     if (model?.owned_by === "alibaba") return "qwen";
@@ -107,27 +114,33 @@ export function Models() {
     if (!groupId || !MODEL_GROUPS[groupId]) return null;
     const group = MODEL_GROUPS[groupId];
     return (
-      <span className={`rounded px-2 py-0.5 text-xs font-medium ${group.color}`}>
+      <span
+        className={`rounded px-2 py-0.5 text-xs font-medium ${group.color}`}
+      >
         {group.name}
       </span>
     );
   };
 
   // 过滤模型
-  const filteredModels = models.filter(model => {
+  const filteredModels = models.filter((model) => {
     const matchesSearch = model.id.toLowerCase().includes(search.toLowerCase());
-    const matchesGroup = !selectedGroup || getModelGroup(model.id) === selectedGroup;
+    const matchesGroup =
+      !selectedGroup || getModelGroup(model.id) === selectedGroup;
     return matchesSearch && matchesGroup;
   });
 
   // 按 provider 分组统计
-  const groupCounts = models.reduce((acc, model) => {
-    const group = getModelGroup(model.id);
-    if (group) {
-      acc[group] = (acc[group] || 0) + 1;
-    }
-    return acc;
-  }, {} as Record<string, number>);
+  const groupCounts = models.reduce(
+    (acc, model) => {
+      const group = getModelGroup(model.id);
+      if (group) {
+        acc[group] = (acc[group] || 0) + 1;
+      }
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 
   return (
     <div className="space-y-6">
@@ -169,7 +182,9 @@ export function Models() {
         <button
           onClick={() => setSelectedGroup(null)}
           className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-            !selectedGroup ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"
+            !selectedGroup
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted hover:bg-muted/80"
           }`}
         >
           全部 ({models.length})
@@ -180,9 +195,13 @@ export function Models() {
           return (
             <button
               key={groupId}
-              onClick={() => setSelectedGroup(selectedGroup === groupId ? null : groupId)}
+              onClick={() =>
+                setSelectedGroup(selectedGroup === groupId ? null : groupId)
+              }
               className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                selectedGroup === groupId ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"
+                selectedGroup === groupId
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted hover:bg-muted/80"
               }`}
             >
               {group.name} ({count})
@@ -201,7 +220,7 @@ export function Models() {
             </span>
           </div>
         </div>
-        
+
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -252,7 +271,10 @@ export function Models() {
         <h3 className="mb-2 font-semibold">使用说明</h3>
         <div className="space-y-2 text-sm text-muted-foreground">
           <p>• 点击模型 ID 右侧的复制按钮可快速复制模型名称</p>
-          <p>• 在 API 请求中使用 <code className="rounded bg-muted px-1">model</code> 参数指定模型</p>
+          <p>
+            • 在 API 请求中使用{" "}
+            <code className="rounded bg-muted px-1">model</code> 参数指定模型
+          </p>
           <p>• 不同 Provider 支持的模型不同，请确保已配置对应的凭证</p>
         </div>
       </div>

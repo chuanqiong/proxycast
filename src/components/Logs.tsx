@@ -33,16 +33,19 @@ export function Logs() {
     try {
       await clearLogs();
       setLogs([]);
-    } catch (e) {
+    } catch {
       setLogs([]);
     }
   };
 
   const handleExport = () => {
-    const content = logs.map(l => 
-      `[${new Date(l.timestamp).toLocaleString()}] [${l.level.toUpperCase()}] ${l.message}`
-    ).join("\n");
-    
+    const content = logs
+      .map(
+        (l) =>
+          `[${new Date(l.timestamp).toLocaleString()}] [${l.level.toUpperCase()}] ${l.message}`,
+      )
+      .join("\n");
+
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -113,14 +116,21 @@ export function Logs() {
       <div className="rounded-lg border bg-card">
         <div className="max-h-[600px] overflow-auto p-4 font-mono text-sm">
           {logs.length === 0 ? (
-            <p className="text-center text-muted-foreground">暂无日志，启动服务后将显示请求日志</p>
+            <p className="text-center text-muted-foreground">
+              暂无日志，启动服务后将显示请求日志
+            </p>
           ) : (
             logs.map((log, i) => (
-              <div key={i} className={`flex gap-2 py-1 px-2 rounded ${getLevelBg(log.level)}`}>
+              <div
+                key={i}
+                className={`flex gap-2 py-1 px-2 rounded ${getLevelBg(log.level)}`}
+              >
                 <span className="text-muted-foreground shrink-0">
                   {new Date(log.timestamp).toLocaleTimeString()}
                 </span>
-                <span className={`font-medium shrink-0 ${getLevelColor(log.level)}`}>
+                <span
+                  className={`font-medium shrink-0 ${getLevelColor(log.level)}`}
+                >
                   [{log.level.toUpperCase()}]
                 </span>
                 <span className="break-all">{log.message}</span>

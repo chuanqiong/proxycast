@@ -1,4 +1,10 @@
-import { LayoutDashboard, Server, Settings, ScrollText, Cpu } from "lucide-react";
+import {
+  LayoutDashboard,
+  Server,
+  Settings,
+  ScrollText,
+  Cpu,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Page = "dashboard" | "providers" | "models" | "settings" | "logs";
@@ -32,7 +38,7 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
               "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
               currentPage === item.id
                 ? "bg-primary text-primary-foreground"
-                : "hover:bg-muted"
+                : "hover:bg-muted",
             )}
           >
             <item.icon className="h-4 w-4" />

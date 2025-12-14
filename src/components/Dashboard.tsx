@@ -1,5 +1,15 @@
 import { useState, useEffect } from "react";
-import { Activity, Server, Zap, Clock, Play, Copy, Check, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Activity,
+  Server,
+  Zap,
+  Clock,
+  Play,
+  Copy,
+  Check,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import {
   startServer,
   stopServer,
@@ -84,9 +94,12 @@ export function Dashboard() {
     return `${h}h ${m}m`;
   };
 
-  const serverUrl = status ? `http://${status.host}:${status.port}` : "http://localhost:3001";
+  const serverUrl = status
+    ? `http://${status.host}:${status.port}`
+    : "http://localhost:3001";
   const apiKey = config?.server.api_key || "proxycast-key";
-  const maskedKey = apiKey.length > 8 ? apiKey.slice(0, 4) + "****" + apiKey.slice(-4) : "****";
+  const maskedKey =
+    apiKey.length > 8 ? apiKey.slice(0, 4) + "****" + apiKey.slice(-4) : "****";
 
   // 测试端点配置
   const testEndpoints = [
@@ -126,12 +139,17 @@ export function Dashboard() {
       body: JSON.stringify({
         model: "claude-sonnet-4-5",
         max_tokens: 100,
-        messages: [{ role: "user", content: "What is 1+1? Answer with just the number." }],
+        messages: [
+          {
+            role: "user",
+            content: "What is 1+1? Answer with just the number.",
+          },
+        ],
       }),
     },
   ];
 
-  const runTest = async (endpoint: typeof testEndpoints[0]) => {
+  const runTest = async (endpoint: (typeof testEndpoints)[0]) => {
     setTestResults((prev) => ({
       ...prev,
       [endpoint.id]: { endpoint: endpoint.path, status: "loading" },
@@ -142,7 +160,7 @@ export function Dashboard() {
         endpoint.method,
         endpoint.path,
         endpoint.body,
-        endpoint.needsAuth  // maps to 'auth' parameter
+        endpoint.needsAuth, // maps to 'auth' parameter
       );
 
       // 添加调试日志
@@ -177,7 +195,7 @@ export function Dashboard() {
     }
   };
 
-  const getCurlCommand = (endpoint: typeof testEndpoints[0]) => {
+  const getCurlCommand = (endpoint: (typeof testEndpoints)[0]) => {
     let cmd = `curl -s ${serverUrl}${endpoint.path}`;
     if (endpoint.needsAuth) {
       cmd += ` \\\n  -H "Authorization: Bearer ${apiKey}"`;
@@ -203,15 +221,11 @@ export function Dashboard() {
       return <span className="text-xs text-blue-500">测试中...</span>;
     }
     if (result.status === "success") {
-      return (
-        <span className="text-xs text-green-600">
-          ✓ {result.time}ms
-        </span>
-      );
+      return <span className="text-xs text-green-600">✓ {result.time}ms</span>;
     }
     return (
       <span className="text-xs text-red-500">
-        ✗ 失败 {result.httpStatus ? `(${result.httpStatus})` : ''}
+        ✗ 失败 {result.httpStatus ? `(${result.httpStatus})` : ""}
       </span>
     );
   };
@@ -231,8 +245,12 @@ export function Dashboard() {
             <span className="text-sm text-muted-foreground">状态</span>
           </div>
           <div className="mt-2 flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${status?.running ? "bg-green-500" : "bg-red-500"}`} />
-            <span className="font-medium">{status?.running ? "运行中" : "已停止"}</span>
+            <div
+              className={`h-2 w-2 rounded-full ${status?.running ? "bg-green-500" : "bg-red-500"}`}
+            />
+            <span className="font-medium">
+              {status?.running ? "运行中" : "已停止"}
+            </span>
           </div>
         </div>
 
@@ -249,7 +267,9 @@ export function Dashboard() {
             <Clock className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">运行时间</span>
           </div>
-          <div className="mt-2 font-medium">{formatUptime(status?.uptime_secs || 0)}</div>
+          <div className="mt-2 font-medium">
+            {formatUptime(status?.uptime_secs || 0)}
+          </div>
         </div>
 
         <div className="rounded-lg border bg-card p-4">
@@ -262,7 +282,9 @@ export function Dashboard() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-500 bg-red-50 p-4 text-red-700">{error}</div>
+        <div className="rounded-lg border border-red-500 bg-red-50 p-4 text-red-700">
+          {error}
+        </div>
       )}
 
       {/* Server Control */}
@@ -285,8 +307,14 @@ export function Dashboard() {
           </button>
         </div>
         <div className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
-          <span>API 地址: <code className="rounded bg-muted px-2 py-1">{serverUrl}</code></span>
-          <span>API Key: <code className="rounded bg-muted px-2 py-1">{maskedKey}</code></span>
+          <span>
+            API 地址:{" "}
+            <code className="rounded bg-muted px-2 py-1">{serverUrl}</code>
+          </span>
+          <span>
+            API Key:{" "}
+            <code className="rounded bg-muted px-2 py-1">{maskedKey}</code>
+          </span>
         </div>
       </div>
 
@@ -316,16 +344,25 @@ export function Dashboard() {
             const curlCmd = getCurlCommand(endpoint);
 
             return (
-              <div key={endpoint.id} className="rounded-lg border bg-background">
+              <div
+                key={endpoint.id}
+                className="rounded-lg border bg-background"
+              >
                 <div className="flex items-center justify-between p-3">
                   <div className="flex items-center gap-3">
-                    <span className={`rounded px-2 py-0.5 text-xs font-medium ${
-                      endpoint.method === "GET" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
-                    }`}>
+                    <span
+                      className={`rounded px-2 py-0.5 text-xs font-medium ${
+                        endpoint.method === "GET"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-blue-100 text-blue-700"
+                      }`}
+                    >
                       {endpoint.method}
                     </span>
                     <span className="font-medium">{endpoint.name}</span>
-                    <code className="text-xs text-muted-foreground">{endpoint.path}</code>
+                    <code className="text-xs text-muted-foreground">
+                      {endpoint.path}
+                    </code>
                     {getStatusBadge(result)}
                   </div>
                   <div className="flex items-center gap-2">
@@ -342,16 +379,24 @@ export function Dashboard() {
                     </button>
                     <button
                       onClick={() => runTest(endpoint)}
-                      disabled={!status?.running || result?.status === "loading"}
+                      disabled={
+                        !status?.running || result?.status === "loading"
+                      }
                       className="rounded bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
                     >
                       测试
                     </button>
                     <button
-                      onClick={() => setExpandedTest(isExpanded ? null : endpoint.id)}
+                      onClick={() =>
+                        setExpandedTest(isExpanded ? null : endpoint.id)
+                      }
                       className="rounded p-1.5 hover:bg-muted"
                     >
-                      {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      {isExpanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -359,22 +404,35 @@ export function Dashboard() {
                 {isExpanded && (
                   <div className="border-t p-3 space-y-3">
                     <div>
-                      <p className="mb-1 text-xs font-medium text-muted-foreground">curl 命令</p>
-                      <pre className="rounded bg-muted p-2 text-xs overflow-x-auto">{curlCmd}</pre>
+                      <p className="mb-1 text-xs font-medium text-muted-foreground">
+                        curl 命令
+                      </p>
+                      <pre className="rounded bg-muted p-2 text-xs overflow-x-auto">
+                        {curlCmd}
+                      </pre>
                     </div>
                     {result?.response && (
                       <div>
                         <p className="mb-1 text-xs font-medium text-muted-foreground">
-                          响应 {result.httpStatus && `(HTTP ${result.httpStatus})`}
+                          响应{" "}
+                          {result.httpStatus && `(HTTP ${result.httpStatus})`}
                         </p>
-                        <pre className={`rounded p-2 text-xs overflow-x-auto max-h-40 ${
-                          result.status === "success" ? "bg-green-50" : "bg-red-50"
-                        }`}>
+                        <pre
+                          className={`rounded p-2 text-xs overflow-x-auto max-h-40 ${
+                            result.status === "success"
+                              ? "bg-green-50"
+                              : "bg-red-50"
+                          }`}
+                        >
                           {(() => {
                             try {
-                              return JSON.stringify(JSON.parse(result.response), null, 2);
+                              return JSON.stringify(
+                                JSON.parse(result.response),
+                                null,
+                                2,
+                              );
                             } catch {
-                              return result.response || '(空响应)';
+                              return result.response || "(空响应)";
                             }
                           })()}
                         </pre>

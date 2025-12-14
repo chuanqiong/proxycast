@@ -62,6 +62,12 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
 
+      - name: ESLint check
+        run: npm run lint
+
+      - name: Prettier check
+        run: npx prettier --check "src/**/*.{ts,tsx,css}"
+
   build-check:
     name: Build Check
     runs-on: ubuntu-latest

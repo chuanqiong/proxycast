@@ -111,7 +111,7 @@ export async function testApi(
   method: string,
   path: string,
   body: string | null,
-  auth: boolean
+  auth: boolean,
 ): Promise<TestResult> {
   return invoke("test_api", { method, path, body, auth });
 }
@@ -150,10 +150,11 @@ export interface CheckResult {
   reloaded: boolean;
 }
 
-export async function checkAndReloadCredentials(lastHash: string): Promise<CheckResult> {
+export async function checkAndReloadCredentials(
+  lastHash: string,
+): Promise<CheckResult> {
   return invoke("check_and_reload_credentials", { last_hash: lastHash });
 }
-
 
 // ============ Gemini Provider ============
 
@@ -186,10 +187,11 @@ export async function getGeminiTokenFileHash(): Promise<string> {
   return invoke("get_gemini_token_file_hash");
 }
 
-export async function checkAndReloadGeminiCredentials(lastHash: string): Promise<CheckResult> {
+export async function checkAndReloadGeminiCredentials(
+  lastHash: string,
+): Promise<CheckResult> {
   return invoke("check_and_reload_gemini_credentials", { last_hash: lastHash });
 }
-
 
 // ============ Qwen Provider ============
 
@@ -222,10 +224,11 @@ export async function getQwenTokenFileHash(): Promise<string> {
   return invoke("get_qwen_token_file_hash");
 }
 
-export async function checkAndReloadQwenCredentials(lastHash: string): Promise<CheckResult> {
+export async function checkAndReloadQwenCredentials(
+  lastHash: string,
+): Promise<CheckResult> {
   return invoke("check_and_reload_qwen_credentials", { last_hash: lastHash });
 }
-
 
 // ============ OpenAI Custom Provider ============
 
@@ -242,12 +245,12 @@ export async function getOpenAICustomStatus(): Promise<OpenAICustomStatus> {
 export async function setOpenAICustomConfig(
   apiKey: string | null,
   baseUrl: string | null,
-  enabled: boolean
+  enabled: boolean,
 ): Promise<string> {
-  return invoke("set_openai_custom_config", { 
-    api_key: apiKey, 
-    base_url: baseUrl, 
-    enabled 
+  return invoke("set_openai_custom_config", {
+    api_key: apiKey,
+    base_url: baseUrl,
+    enabled,
   });
 }
 
@@ -266,15 +269,14 @@ export async function getClaudeCustomStatus(): Promise<ClaudeCustomStatus> {
 export async function setClaudeCustomConfig(
   apiKey: string | null,
   baseUrl: string | null,
-  enabled: boolean
+  enabled: boolean,
 ): Promise<string> {
-  return invoke("set_claude_custom_config", { 
-    api_key: apiKey, 
-    base_url: baseUrl, 
-    enabled 
+  return invoke("set_claude_custom_config", {
+    api_key: apiKey,
+    base_url: baseUrl,
+    enabled,
   });
 }
-
 
 // ============ Models ============
 
