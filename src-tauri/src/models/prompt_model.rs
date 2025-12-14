@@ -8,22 +8,27 @@ pub struct Prompt {
     pub content: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// Whether this prompt is currently enabled (synced to live file)
     #[serde(default)]
-    pub is_current: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enabled: bool,
+    #[serde(rename = "createdAt", skip_serializing_if = "Option::is_none")]
     pub created_at: Option<i64>,
+    #[serde(rename = "updatedAt", skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<i64>,
 }
 
 impl Prompt {
     pub fn new(id: String, app_type: String, name: String, content: String) -> Self {
+        let now = chrono::Utc::now().timestamp();
         Self {
             id,
             app_type,
             name,
             content,
             description: None,
-            is_current: false,
-            created_at: Some(chrono::Utc::now().timestamp()),
+            enabled: false,
+            created_at: Some(now),
+            updated_at: Some(now),
         }
     }
 }

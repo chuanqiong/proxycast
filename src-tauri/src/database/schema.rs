@@ -44,12 +44,19 @@ pub fn create_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
             name TEXT NOT NULL,
             content TEXT NOT NULL,
             description TEXT,
-            is_current INTEGER DEFAULT 0,
+            enabled INTEGER DEFAULT 0,
             created_at INTEGER,
+            updated_at INTEGER,
             PRIMARY KEY (id, app_type)
         )",
         [],
     )?;
+
+    // Migration: rename is_current to enabled if old column exists
+    let _ = conn.execute("ALTER TABLE prompts RENAME COLUMN is_current TO enabled", []);
+
+    // Migration: add updated_at column if it doesn't exist
+    let _ = conn.execute("ALTER TABLE prompts ADD COLUMN updated_at INTEGER", []);
 
     // 设置表
     conn.execute(

@@ -8,7 +8,10 @@
       "Bash(cargo build:*)",
       "Bash(npm run check:*)",
       "Bash(npm run:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(cargo check:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []

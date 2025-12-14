@@ -2,11 +2,24 @@ import { useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Dashboard } from "./components/Dashboard";
 import { Providers } from "./components/Providers";
-import { Models } from "./components/Models";
-import { Settings } from "./components/Settings";
-import { Logs } from "./components/Logs";
+import { SettingsPage } from "./components/settings";
+import { SwitchPage } from "./components/switch";
+import { ClientsPage } from "./components/clients";
+import { McpPage } from "./components/mcp";
+import { PromptsPage } from "./components/prompts";
+import { CredentialsPage } from "./components/credentials/CredentialsPage";
+import { ApiServerPage } from "./components/api-server/ApiServerPage";
 
-type Page = "dashboard" | "providers" | "models" | "settings" | "logs";
+type Page =
+  | "dashboard"
+  | "credentials"
+  | "clients"
+  | "api-server"
+  | "providers"
+  | "settings"
+  | "switch"
+  | "mcp"
+  | "prompts";
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
@@ -15,14 +28,22 @@ function App() {
     switch (currentPage) {
       case "dashboard":
         return <Dashboard />;
+      case "credentials":
+        return <CredentialsPage />;
+      case "clients":
+        return <ClientsPage />;
+      case "api-server":
+        return <ApiServerPage />;
       case "providers":
         return <Providers />;
-      case "models":
-        return <Models />;
       case "settings":
-        return <Settings />;
-      case "logs":
-        return <Logs />;
+        return <SettingsPage />;
+      case "switch":
+        return <SwitchPage />;
+      case "mcp":
+        return <McpPage />;
+      case "prompts":
+        return <PromptsPage />;
       default:
         return <Dashboard />;
     }

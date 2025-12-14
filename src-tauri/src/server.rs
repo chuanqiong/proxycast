@@ -356,19 +356,34 @@ async fn chat_completions(
                     )
                         .into_response(),
                 }
-            } else if status.as_u16() == 403 {
-                // Token 过期，尝试刷新
+            } else if status.as_u16() == 403 || status.as_u16() == 402 {
+                // Token 过期或账户问题，尝试重新加载凭证并刷新
                 drop(kiro);
                 let _guard = state.kiro_refresh_lock.lock().await;
                 let mut kiro = state.kiro.write().await;
-                state
-                    .logs
-                    .write()
-                    .await
-                    .add("warn", "Got 403, attempting token refresh");
+                state.logs.write().await.add(
+                    "warn",
+                    &format!(
+                        "[AUTH] Got {}, reloading credentials and attempting token refresh...",
+                        status.as_u16()
+                    ),
+                );
+
+                // 先重新加载凭证文件（可能用户换了账户）
+                if let Err(e) = kiro.load_credentials().await {
+                    state.logs.write().await.add(
+                        "error",
+                        &format!("[AUTH] Failed to reload credentials: {e}"),
+                    );
+                }
 
                 match kiro.refresh_token().await {
                     Ok(_) => {
+                        state
+                            .logs
+                            .write()
+                            .await
+                            .add("info", "[AUTH] Token refreshed successfully after reload");
                         // 重试请求
                         drop(kiro);
                         let kiro = state.kiro.read().await;
@@ -438,13 +453,22 @@ async fn chat_completions(
                             Err(e) => (
                                 StatusCode::INTERNAL_SERVER_ERROR,
                                 Json(serde_json::json!({"error": {"message": e.to_string()}})),
-                            ).into_response(),
+                            )
+                                .into_response(),
                         }
                     }
-                    Err(e) => (
-                        StatusCode::UNAUTHORIZED,
-                        Json(serde_json::json!({"error": {"message": format!("Token refresh failed: {e}")}})),
-                    ).into_response(),
+                    Err(e) => {
+                        state
+                            .logs
+                            .write()
+                            .await
+                            .add("error", &format!("[AUTH] Token refresh failed: {e}"));
+                        (
+                            StatusCode::UNAUTHORIZED,
+                            Json(serde_json::json!({"error": {"message": format!("Token refresh failed: {e}")}})),
+                        )
+                            .into_response()
+                    }
                 }
             } else {
                 let body = resp.text().await.unwrap_or_default();
@@ -655,23 +679,33 @@ async fn anthropic_messages(
                             .into_response()
                     }
                 }
-            } else if status.as_u16() == 403 {
-                // Token 过期，尝试刷新
+            } else if status.as_u16() == 403 || status.as_u16() == 402 {
+                // Token 过期或账户问题，尝试重新加载凭证并刷新
                 drop(kiro);
                 let _guard = state.kiro_refresh_lock.lock().await;
                 let mut kiro = state.kiro.write().await;
                 state.logs.write().await.add(
                     "warn",
-                    "[AUTH] Got 403 Forbidden, attempting token refresh...",
+                    &format!(
+                        "[AUTH] Got {}, reloading credentials and attempting token refresh...",
+                        status.as_u16()
+                    ),
                 );
+
+                // 先重新加载凭证文件（可能用户换了账户）
+                if let Err(e) = kiro.load_credentials().await {
+                    state.logs.write().await.add(
+                        "error",
+                        &format!("[AUTH] Failed to reload credentials: {e}"),
+                    );
+                }
 
                 match kiro.refresh_token().await {
                     Ok(_) => {
-                        state
-                            .logs
-                            .write()
-                            .await
-                            .add("info", "[AUTH] Token refreshed, retrying request...");
+                        state.logs.write().await.add(
+                            "info",
+                            "[AUTH] Token refreshed successfully, retrying request...",
+                        );
                         drop(kiro);
                         let kiro = state.kiro.read().await;
                         match kiro.call_api(&openai_request).await {

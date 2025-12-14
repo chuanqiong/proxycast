@@ -58,7 +58,7 @@ const MODEL_GROUPS: Record<
   },
 };
 
-export function Models() {
+export function ModelsTab() {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,11 +144,6 @@ export function Models() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">可用模型</h2>
-        <p className="text-muted-foreground">查看当前可用的 AI 模型列表</p>
-      </div>
-
       {error && (
         <div className="rounded-lg border border-red-500 bg-red-50 p-4 text-red-700">
           {error}

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Trash2, Download } from "lucide-react";
 import { getLogs, clearLogs, LogEntry } from "@/hooks/useTauri";
 
-export function Logs() {
+export function LogsTab() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [autoScroll, setAutoScroll] = useState(true);
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -81,36 +81,30 @@ export function Logs() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">日志</h2>
-          <p className="text-muted-foreground">查看请求和系统日志</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={autoScroll}
-              onChange={(e) => setAutoScroll(e.target.checked)}
-              className="rounded"
-            />
-            自动滚动
-          </label>
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted"
-          >
-            <Download className="h-4 w-4" />
-            导出
-          </button>
-          <button
-            onClick={handleClear}
-            className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted"
-          >
-            <Trash2 className="h-4 w-4" />
-            清空
-          </button>
-        </div>
+      <div className="flex items-center justify-end gap-2">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={autoScroll}
+            onChange={(e) => setAutoScroll(e.target.checked)}
+            className="rounded"
+          />
+          自动滚动
+        </label>
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted"
+        >
+          <Download className="h-4 w-4" />
+          导出
+        </button>
+        <button
+          onClick={handleClear}
+          className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted"
+        >
+          <Trash2 className="h-4 w-4" />
+          清空
+        </button>
       </div>
 
       <div className="rounded-lg border bg-card">

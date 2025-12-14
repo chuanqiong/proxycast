@@ -1,3 +1,4 @@
+mod commands;
 mod config;
 mod converter;
 mod database;
@@ -5,6 +6,7 @@ mod logger;
 mod models;
 mod providers;
 mod server;
+mod services;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -1257,14 +1259,22 @@ pub fn run() {
     let state: AppState = Arc::new(RwLock::new(server::ServerState::new(config)));
     let logs: LogState = Arc::new(RwLock::new(logger::LogStore::new()));
 
+    // Initialize database for Switch functionality
+    let db = database::init_database().expect("Failed to initialize database");
+
     // Clone for setup hook
     let state_clone = state.clone();
     let logs_clone = logs.clone();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--minimized"]),
+        ))
         .manage(state)
         .manage(logs)
+        .manage(db)
         .setup(move |_app| {
             // 自动启动服务器
             let state = state_clone.clone();
@@ -1313,21 +1323,29 @@ pub fn run() {
             save_config,
             get_default_provider,
             set_default_provider,
-            // Kiro commands
+            // Unified OAuth commands (new)
+            commands::oauth_cmd::get_oauth_credentials,
+            commands::oauth_cmd::reload_oauth_credentials,
+            commands::oauth_cmd::refresh_oauth_token,
+            commands::oauth_cmd::get_oauth_env_variables,
+            commands::oauth_cmd::get_oauth_token_file_hash,
+            commands::oauth_cmd::check_and_reload_oauth_credentials,
+            commands::oauth_cmd::get_all_oauth_credentials,
+            // Legacy Kiro commands (deprecated, kept for compatibility)
             refresh_kiro_token,
             reload_credentials,
             get_kiro_credentials,
             get_env_variables,
             get_token_file_hash,
             check_and_reload_credentials,
-            // Gemini commands
+            // Legacy Gemini commands (deprecated, kept for compatibility)
             get_gemini_credentials,
             reload_gemini_credentials,
             refresh_gemini_token,
             get_gemini_env_variables,
             get_gemini_token_file_hash,
             check_and_reload_gemini_credentials,
-            // Qwen commands
+            // Legacy Qwen commands (deprecated, kept for compatibility)
             get_qwen_credentials,
             reload_qwen_credentials,
             refresh_qwen_token,
@@ -1347,6 +1365,41 @@ pub fn run() {
             get_available_models,
             // API Compatibility
             check_api_compatibility,
+            // Switch commands
+            commands::switch_cmd::get_switch_providers,
+            commands::switch_cmd::get_current_switch_provider,
+            commands::switch_cmd::add_switch_provider,
+            commands::switch_cmd::update_switch_provider,
+            commands::switch_cmd::delete_switch_provider,
+            commands::switch_cmd::switch_provider,
+            commands::switch_cmd::import_default_config,
+            commands::switch_cmd::read_live_provider_settings,
+            // Config commands
+            commands::config_cmd::get_config_status,
+            commands::config_cmd::get_config_dir_path,
+            commands::config_cmd::open_config_folder,
+            commands::config_cmd::get_tool_versions,
+            commands::config_cmd::get_auto_launch_status,
+            commands::config_cmd::set_auto_launch,
+            // MCP commands
+            commands::mcp_cmd::get_mcp_servers,
+            commands::mcp_cmd::add_mcp_server,
+            commands::mcp_cmd::update_mcp_server,
+            commands::mcp_cmd::delete_mcp_server,
+            commands::mcp_cmd::toggle_mcp_server,
+            commands::mcp_cmd::import_mcp_from_app,
+            commands::mcp_cmd::sync_all_mcp_to_live,
+            // Prompt commands
+            commands::prompt_cmd::get_prompts,
+            commands::prompt_cmd::upsert_prompt,
+            commands::prompt_cmd::add_prompt,
+            commands::prompt_cmd::update_prompt,
+            commands::prompt_cmd::delete_prompt,
+            commands::prompt_cmd::enable_prompt,
+            commands::prompt_cmd::import_prompt_from_file,
+            commands::prompt_cmd::get_current_prompt_file_content,
+            commands::prompt_cmd::auto_import_prompt,
+            commands::prompt_cmd::switch_prompt,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

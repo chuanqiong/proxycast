@@ -1,13 +1,24 @@
 import {
   LayoutDashboard,
-  Server,
   Settings,
-  ScrollText,
-  Cpu,
+  Plug,
+  MessageSquare,
+  Key,
+  Monitor,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Page = "dashboard" | "providers" | "models" | "settings" | "logs";
+type Page =
+  | "dashboard"
+  | "credentials"
+  | "clients"
+  | "api-server"
+  | "providers"
+  | "settings"
+  | "switch"
+  | "mcp"
+  | "prompts";
 
 interface SidebarProps {
   currentPage: Page;
@@ -16,10 +27,15 @@ interface SidebarProps {
 
 const navItems = [
   { id: "dashboard" as Page, label: "仪表盘", icon: LayoutDashboard },
-  { id: "providers" as Page, label: "Provider", icon: Server },
-  { id: "models" as Page, label: "模型", icon: Cpu },
-  { id: "logs" as Page, label: "日志", icon: ScrollText },
+  { id: "credentials" as Page, label: "凭证管理", icon: Key },
+  { id: "clients" as Page, label: "AI Clients", icon: Monitor },
+  { id: "api-server" as Page, label: "API Server", icon: Globe },
+  { id: "mcp" as Page, label: "MCP", icon: Plug },
+  { id: "prompts" as Page, label: "Prompts", icon: MessageSquare },
   { id: "settings" as Page, label: "设置", icon: Settings },
+  // Legacy pages (hidden but accessible)
+  // { id: "providers" as Page, label: "Provider (旧)", icon: Server },
+  // { id: "switch" as Page, label: "Switch (旧)", icon: ArrowLeftRight },
 ];
 
 export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
