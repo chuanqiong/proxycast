@@ -145,11 +145,11 @@ impl GeminiProvider {
             .join(CREDENTIALS_FILE)
     }
 
-    pub fn load_credentials(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn load_credentials(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let path = Self::default_creds_path();
 
-        if path.exists() {
-            let content = std::fs::read_to_string(&path)?;
+        if tokio::fs::try_exists(&path).await.unwrap_or(false) {
+            let content = tokio::fs::read_to_string(&path).await?;
             let creds: GeminiCredentials = serde_json::from_str(&content)?;
             self.credentials = creds;
         }
@@ -157,13 +157,13 @@ impl GeminiProvider {
         Ok(())
     }
 
-    pub fn save_credentials(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn save_credentials(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let path = Self::default_creds_path();
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+            tokio::fs::create_dir_all(parent).await?;
         }
         let content = serde_json::to_string_pretty(&self.credentials)?;
-        std::fs::write(&path, content)?;
+        tokio::fs::write(&path, content).await?;
         Ok(())
     }
 

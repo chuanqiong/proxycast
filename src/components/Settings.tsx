@@ -285,7 +285,9 @@ export function Settings() {
                     )}
                     <span>
                       {r.model.includes("tool_call") ? (
-                        <span className="font-medium text-purple-600">{r.model}</span>
+                        <span className="font-medium text-purple-600">
+                          {r.model}
+                        </span>
                       ) : (
                         r.model
                       )}

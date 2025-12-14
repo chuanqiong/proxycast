@@ -228,21 +228,24 @@ async fn get_env_variables(state: tauri::State<'_, AppState>) -> Result<Vec<EnvV
 }
 
 fn mask_token(token: &str) -> String {
-    if token.len() <= 12 {
+    let chars: Vec<char> = token.chars().collect();
+    if chars.len() <= 12 {
         "****".to_string()
     } else {
-        format!("{}****{}", &token[..6], &token[token.len() - 4..])
+        let prefix: String = chars[..6].iter().collect();
+        let suffix: String = chars[chars.len() - 4..].iter().collect();
+        format!("{}****{}", prefix, suffix)
     }
 }
 
 #[tauri::command]
 async fn get_token_file_hash() -> Result<String, String> {
     let path = providers::kiro::KiroProvider::default_creds_path();
-    if !path.exists() {
+    if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
         return Ok("".to_string());
     }
 
-    let content = std::fs::read(&path).map_err(|e| e.to_string())?;
+    let content = tokio::fs::read(&path).await.map_err(|e| e.to_string())?;
     let hash = format!("{:x}", md5::compute(&content));
     Ok(hash)
 }
@@ -256,7 +259,7 @@ async fn check_and_reload_credentials(
 ) -> Result<CheckResult, String> {
     let path = providers::kiro::KiroProvider::default_creds_path();
 
-    if !path.exists() {
+    if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
         return Ok(CheckResult {
             changed: false,
             new_hash: "".to_string(),
@@ -264,7 +267,7 @@ async fn check_and_reload_credentials(
         });
     }
 
-    let content = std::fs::read(&path).map_err(|e| e.to_string())?;
+    let content = tokio::fs::read(&path).await.map_err(|e| e.to_string())?;
     let new_hash = format!("{:x}", md5::compute(&content));
 
     if !last_hash.is_empty() && new_hash != last_hash {
@@ -414,11 +417,11 @@ async fn get_gemini_env_variables(
 #[tauri::command]
 async fn get_gemini_token_file_hash() -> Result<String, String> {
     let path = providers::gemini::GeminiProvider::default_creds_path();
-    if !path.exists() {
+    if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
         return Ok("".to_string());
     }
 
-    let content = std::fs::read(&path).map_err(|e| e.to_string())?;
+    let content = tokio::fs::read(&path).await.map_err(|e| e.to_string())?;
     let hash = format!("{:x}", md5::compute(&content));
     Ok(hash)
 }
@@ -431,7 +434,7 @@ async fn check_and_reload_gemini_credentials(
 ) -> Result<CheckResult, String> {
     let path = providers::gemini::GeminiProvider::default_creds_path();
 
-    if !path.exists() {
+    if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
         return Ok(CheckResult {
             changed: false,
             new_hash: "".to_string(),
@@ -439,7 +442,7 @@ async fn check_and_reload_gemini_credentials(
         });
     }
 
-    let content = std::fs::read(&path).map_err(|e| e.to_string())?;
+    let content = tokio::fs::read(&path).await.map_err(|e| e.to_string())?;
     let new_hash = format!("{:x}", md5::compute(&content));
 
     if !last_hash.is_empty() && new_hash != last_hash {
@@ -590,11 +593,11 @@ async fn get_qwen_env_variables(
 #[tauri::command]
 async fn get_qwen_token_file_hash() -> Result<String, String> {
     let path = providers::qwen::QwenProvider::default_creds_path();
-    if !path.exists() {
+    if !tokio::fs::try_exists(&path).await.unwrap_or(false) {
         return Ok("".to_string());
     }
 
-    let content = std::fs::read(&path).map_err(|e| e.to_string())?;
+    let content = tokio::fs::read(&path).await.map_err(|e| e.to_string())?;
     let hash = format!("{:x}", md5::compute(&content));
     Ok(hash)
 }

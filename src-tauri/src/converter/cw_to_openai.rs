@@ -14,7 +14,7 @@ pub fn convert_cw_event_to_openai_chunk(
 ) -> Option<ChatCompletionChunk> {
     let created = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs();
 
     if let Some(resp_event) = &event.assistant_response_event {
@@ -78,7 +78,7 @@ pub fn create_openai_response(
 ) -> ChatCompletionResponse {
     let created = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs();
 
     let finish_reason = if tool_calls.is_some() {
@@ -117,7 +117,7 @@ pub fn create_openai_response(
 pub fn create_stream_end_chunk(model: &str, response_id: &str) -> ChatCompletionChunk {
     let created = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs();
 
     ChatCompletionChunk {

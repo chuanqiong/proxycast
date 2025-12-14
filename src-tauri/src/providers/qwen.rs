@@ -58,11 +58,11 @@ impl QwenProvider {
             .join(CREDENTIALS_FILE)
     }
 
-    pub fn load_credentials(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn load_credentials(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let path = Self::default_creds_path();
 
-        if path.exists() {
-            let content = std::fs::read_to_string(&path)?;
+        if tokio::fs::try_exists(&path).await.unwrap_or(false) {
+            let content = tokio::fs::read_to_string(&path).await?;
             let creds: QwenCredentials = serde_json::from_str(&content)?;
             self.credentials = creds;
         }
@@ -70,13 +70,13 @@ impl QwenProvider {
         Ok(())
     }
 
-    pub fn save_credentials(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn save_credentials(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let path = Self::default_creds_path();
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+            tokio::fs::create_dir_all(parent).await?;
         }
         let content = serde_json::to_string_pretty(&self.credentials)?;
-        std::fs::write(&path, content)?;
+        tokio::fs::write(&path, content).await?;
         Ok(())
     }
 
@@ -119,9 +119,7 @@ impl QwenProvider {
             .ok_or("No refresh token available")?;
 
         let client_id = std::env::var("QWEN_OAUTH_CLIENT_ID")
-            .ok()
-            .or_else(|| Some("f0304373b74a44d2b584a3fb70ca9e56".to_string()))
-            .unwrap();
+            .unwrap_or_else(|_| "f0304373b74a44d2b584a3fb70ca9e56".to_string());
 
         let body = serde_json::json!({
             "grant_type": "refresh_token",

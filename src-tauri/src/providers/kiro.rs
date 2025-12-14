@@ -62,27 +62,27 @@ impl KiroProvider {
             .join("kiro-auth-token.json")
     }
 
-    pub fn load_credentials(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn load_credentials(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let path = Self::default_creds_path();
-        let dir = path.parent().unwrap();
+        let dir = path.parent().ok_or("Invalid path: no parent directory")?;
 
         let mut merged = KiroCredentials::default();
 
         // 读取主凭证文件
-        if path.exists() {
-            let content = std::fs::read_to_string(&path)?;
+        if tokio::fs::try_exists(&path).await.unwrap_or(false) {
+            let content = tokio::fs::read_to_string(&path).await?;
             let creds: KiroCredentials = serde_json::from_str(&content)?;
             merge_credentials(&mut merged, &creds);
         }
 
         // 读取目录中其他 JSON 文件
-        if dir.is_dir() {
-            for entry in std::fs::read_dir(dir)? {
-                let entry = entry?;
+        if tokio::fs::try_exists(dir).await.unwrap_or(false) {
+            let mut entries = tokio::fs::read_dir(dir).await?;
+            while let Some(entry) = entries.next_entry().await? {
                 let file_path = entry.path();
                 if file_path.extension().map(|e| e == "json").unwrap_or(false) && file_path != path
                 {
-                    if let Ok(content) = std::fs::read_to_string(&file_path) {
+                    if let Ok(content) = tokio::fs::read_to_string(&file_path).await {
                         if let Ok(creds) = serde_json::from_str::<KiroCredentials>(&content) {
                             merge_credentials(&mut merged, &creds);
                         }
@@ -177,12 +177,12 @@ impl KiroProvider {
         Ok(new_token.to_string())
     }
 
-    pub fn save_credentials(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub async fn save_credentials(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let path = Self::default_creds_path();
 
         // 读取现有文件内容
-        let mut existing: serde_json::Value = if path.exists() {
-            let content = std::fs::read_to_string(&path)?;
+        let mut existing: serde_json::Value = if tokio::fs::try_exists(&path).await.unwrap_or(false) {
+            let content = tokio::fs::read_to_string(&path).await?;
             serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
         } else {
             serde_json::json!({})
@@ -201,7 +201,7 @@ impl KiroProvider {
 
         // 写回文件
         let content = serde_json::to_string_pretty(&existing)?;
-        std::fs::write(&path, content)?;
+        tokio::fs::write(&path, content).await?;
 
         Ok(())
     }
@@ -224,6 +224,45 @@ impl KiroProvider {
 
         let cw_request = convert_openai_to_codewhisperer(request, profile_arn);
         let url = self.get_base_url();
+
+        // Debug: 记录转换后的请求
+        if let Ok(json_str) = serde_json::to_string_pretty(&cw_request) {
+            // 保存到文件用于调试
+            let uuid_prefix = uuid::Uuid::new_v4()
+                .to_string()
+                .split('-')
+                .next()
+                .unwrap_or("unknown")
+                .to_string();
+            let debug_path = dirs::home_dir()
+                .unwrap_or_default()
+                .join(".proxycast")
+                .join("logs")
+                .join(format!("cw_request_{}.json", uuid_prefix));
+            let _ = tokio::fs::write(&debug_path, &json_str).await;
+            tracing::debug!("[CW_REQ] Request saved to {:?}", debug_path);
+
+            // 记录历史消息数量和 tool_results 情况
+            let history_len = cw_request
+                .conversation_state
+                .history
+                .as_ref()
+                .map(|h| h.len())
+                .unwrap_or(0);
+            let current_has_tools = cw_request
+                .conversation_state
+                .current_message
+                .user_input_message
+                .user_input_message_context
+                .as_ref()
+                .map(|ctx| ctx.tool_results.as_ref().map(|tr| tr.len()).unwrap_or(0))
+                .unwrap_or(0);
+            tracing::info!(
+                "[CW_REQ] history={} current_tool_results={}",
+                history_len,
+                current_has_tools
+            );
+        }
 
         let resp = self
             .client
