@@ -1,6 +1,8 @@
 //! Kiro/CodeWhisperer Provider
 use crate::converter::openai_to_cw::convert_openai_to_codewhisperer;
 use crate::models::openai::*;
+use crate::providers::traits::{CredentialProvider, ProviderResult};
+use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -1074,4 +1076,40 @@ fn merge_credentials(target: &mut KiroCredentials, source: &KiroCredentials) {
         target.last_refresh = source.last_refresh.clone();
     }
     // cred_type 使用默认值，不需要合并
+}
+
+// ============================================================================
+// CredentialProvider Trait 实现
+// ============================================================================
+
+#[async_trait]
+impl CredentialProvider for KiroProvider {
+    async fn load_credentials_from_path(&mut self, path: &str) -> ProviderResult<()> {
+        // 调用已有的实现
+        KiroProvider::load_credentials_from_path(self, path).await
+    }
+
+    async fn save_credentials(&self) -> ProviderResult<()> {
+        KiroProvider::save_credentials(self).await
+    }
+
+    fn is_token_valid(&self) -> bool {
+        !self.is_token_expired()
+    }
+
+    fn is_token_expiring_soon(&self) -> bool {
+        KiroProvider::is_token_expiring_soon(self)
+    }
+
+    async fn refresh_token(&mut self) -> ProviderResult<String> {
+        KiroProvider::refresh_token(self).await
+    }
+
+    fn get_access_token(&self) -> Option<&str> {
+        self.credentials.access_token.as_deref()
+    }
+
+    fn provider_type(&self) -> &'static str {
+        "kiro"
+    }
 }

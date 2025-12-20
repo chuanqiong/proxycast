@@ -2,6 +2,8 @@
 //!
 //! 支持 Gemini 3 Pro 等高级模型，通过 Google 内部 API 访问。
 
+use super::traits::{CredentialProvider, ProviderResult};
+use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -1528,5 +1530,40 @@ pub async fn start_oauth_login(
                 Err(e) => Err(format!("服务器错误: {}", e).into()),
             }
         }
+    }
+}
+
+// ============================================================================
+// CredentialProvider Trait 实现
+// ============================================================================
+
+#[async_trait]
+impl CredentialProvider for AntigravityProvider {
+    async fn load_credentials_from_path(&mut self, path: &str) -> ProviderResult<()> {
+        AntigravityProvider::load_credentials_from_path(self, path).await
+    }
+
+    async fn save_credentials(&self) -> ProviderResult<()> {
+        AntigravityProvider::save_credentials(self).await
+    }
+
+    fn is_token_valid(&self) -> bool {
+        AntigravityProvider::is_token_valid(self)
+    }
+
+    fn is_token_expiring_soon(&self) -> bool {
+        AntigravityProvider::is_token_expiring_soon(self)
+    }
+
+    async fn refresh_token(&mut self) -> ProviderResult<String> {
+        AntigravityProvider::refresh_token(self).await
+    }
+
+    fn get_access_token(&self) -> Option<&str> {
+        self.credentials.access_token.as_deref()
+    }
+
+    fn provider_type(&self) -> &'static str {
+        "antigravity"
     }
 }

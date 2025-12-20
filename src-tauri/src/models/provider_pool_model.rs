@@ -21,69 +21,11 @@ pub enum CredentialSource {
     Private,
 }
 
-/// Provider 类型枚举
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum PoolProviderType {
-    Kiro,
-    Gemini,
-    Qwen,
-    #[serde(rename = "openai")]
-    OpenAI,
-    Claude,
-    Antigravity,
-    Vertex,
-    /// Gemini API Key (multi-account load balancing)
-    #[serde(rename = "gemini_api_key")]
-    GeminiApiKey,
-    /// Codex (OpenAI OAuth)
-    Codex,
-    /// Claude OAuth (Anthropic OAuth)
-    #[serde(rename = "claude_oauth")]
-    ClaudeOAuth,
-    /// iFlow
-    #[serde(rename = "iflow")]
-    IFlow,
-}
-
-impl std::fmt::Display for PoolProviderType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PoolProviderType::Kiro => write!(f, "kiro"),
-            PoolProviderType::Gemini => write!(f, "gemini"),
-            PoolProviderType::Qwen => write!(f, "qwen"),
-            PoolProviderType::OpenAI => write!(f, "openai"),
-            PoolProviderType::Claude => write!(f, "claude"),
-            PoolProviderType::Antigravity => write!(f, "antigravity"),
-            PoolProviderType::Vertex => write!(f, "vertex"),
-            PoolProviderType::GeminiApiKey => write!(f, "gemini_api_key"),
-            PoolProviderType::Codex => write!(f, "codex"),
-            PoolProviderType::ClaudeOAuth => write!(f, "claude_oauth"),
-            PoolProviderType::IFlow => write!(f, "iflow"),
-        }
-    }
-}
-
-impl std::str::FromStr for PoolProviderType {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "kiro" => Ok(PoolProviderType::Kiro),
-            "gemini" => Ok(PoolProviderType::Gemini),
-            "qwen" => Ok(PoolProviderType::Qwen),
-            "openai" => Ok(PoolProviderType::OpenAI),
-            "claude" => Ok(PoolProviderType::Claude),
-            "antigravity" => Ok(PoolProviderType::Antigravity),
-            "vertex" => Ok(PoolProviderType::Vertex),
-            "gemini_api_key" => Ok(PoolProviderType::GeminiApiKey),
-            "codex" => Ok(PoolProviderType::Codex),
-            "claude_oauth" => Ok(PoolProviderType::ClaudeOAuth),
-            "iflow" => Ok(PoolProviderType::IFlow),
-            _ => Err(format!("Invalid provider type: {s}")),
-        }
-    }
-}
+/// Provider 类型别名
+///
+/// 为了向后兼容，PoolProviderType 是 crate::ProviderType 的类型别名。
+/// 所有 Provider 类型定义已统一到 lib.rs 中的 ProviderType。
+pub type PoolProviderType = crate::ProviderType;
 
 /// 凭证数据，根据 Provider 类型不同而不同
 #[derive(Debug, Clone, Serialize, Deserialize)]

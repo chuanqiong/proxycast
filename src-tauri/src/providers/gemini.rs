@@ -6,6 +6,8 @@
 use super::error::{
     create_auth_error, create_config_error, create_token_refresh_error, ProviderError,
 };
+use super::traits::{CredentialProvider, ProviderResult};
+use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -1352,4 +1354,56 @@ pub async fn start_gemini_oauth_login(
 
     // 等待回调
     wait_future.await
+}
+
+// ============================================================================
+// CredentialProvider Trait 实现
+// ============================================================================
+
+#[async_trait]
+impl CredentialProvider for GeminiProvider {
+    async fn load_credentials_from_path(&mut self, path: &str) -> ProviderResult<()> {
+        GeminiProvider::load_credentials_from_path(self, path).await
+    }
+
+    async fn save_credentials(&self) -> ProviderResult<()> {
+        GeminiProvider::save_credentials(self).await
+    }
+
+    fn is_token_valid(&self) -> bool {
+        GeminiProvider::is_token_valid(self)
+    }
+
+    fn is_token_expiring_soon(&self) -> bool {
+        // Gemini 使用与 is_token_valid 相同的逻辑，但阈值为 10 分钟
+        if self.credentials.access_token.is_none() {
+            return true;
+        }
+
+        if let Some(expire_str) = &self.credentials.expire {
+            if let Ok(expires) = chrono::DateTime::parse_from_rfc3339(expire_str) {
+                let now = chrono::Utc::now();
+                return expires <= now + chrono::Duration::minutes(10);
+            }
+        }
+
+        if let Some(expiry) = self.credentials.expiry_date {
+            let now = chrono::Utc::now().timestamp_millis();
+            return expiry <= now + 600_000; // 10 分钟
+        }
+
+        false
+    }
+
+    async fn refresh_token(&mut self) -> ProviderResult<String> {
+        GeminiProvider::refresh_token(self).await
+    }
+
+    fn get_access_token(&self) -> Option<&str> {
+        self.credentials.access_token.as_deref()
+    }
+
+    fn provider_type(&self) -> &'static str {
+        "gemini"
+    }
 }

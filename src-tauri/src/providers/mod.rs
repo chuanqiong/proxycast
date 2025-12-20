@@ -8,10 +8,15 @@ pub mod iflow;
 pub mod kiro;
 pub mod openai_custom;
 pub mod qwen;
+pub mod traits;
 pub mod vertex;
 
 #[cfg(test)]
 mod tests;
+
+// Trait exports
+#[allow(unused_imports)]
+pub use traits::{CredentialProvider, ProviderResult, TokenManager};
 
 #[allow(unused_imports)]
 pub use antigravity::AntigravityProvider;
@@ -22,7 +27,7 @@ pub use claude_oauth::ClaudeOAuthProvider;
 #[allow(unused_imports)]
 pub use codex::CodexProvider;
 #[allow(unused_imports)]
-pub use error::{ProviderError, ProviderResult};
+pub use error::ProviderError;
 #[allow(unused_imports)]
 pub use gemini::{GeminiApiKeyCredential, GeminiApiKeyProvider, GeminiProvider};
 #[allow(unused_imports)]

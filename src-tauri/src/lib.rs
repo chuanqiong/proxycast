@@ -14,6 +14,7 @@ pub mod proxy;
 pub mod resilience;
 pub mod router;
 mod server;
+mod server_utils;
 mod services;
 pub mod telemetry;
 pub mod tray;
@@ -58,6 +59,14 @@ pub enum ProviderType {
     /// Gemini API Key (multi-account load balancing)
     #[serde(rename = "gemini_api_key")]
     GeminiApiKey,
+    /// Codex (OpenAI OAuth)
+    Codex,
+    /// Claude OAuth (Anthropic OAuth)
+    #[serde(rename = "claude_oauth")]
+    ClaudeOAuth,
+    /// iFlow
+    #[serde(rename = "iflow")]
+    IFlow,
 }
 
 impl std::fmt::Display for ProviderType {
@@ -71,6 +80,9 @@ impl std::fmt::Display for ProviderType {
             ProviderType::Antigravity => write!(f, "antigravity"),
             ProviderType::Vertex => write!(f, "vertex"),
             ProviderType::GeminiApiKey => write!(f, "gemini_api_key"),
+            ProviderType::Codex => write!(f, "codex"),
+            ProviderType::ClaudeOAuth => write!(f, "claude_oauth"),
+            ProviderType::IFlow => write!(f, "iflow"),
         }
     }
 }
@@ -88,6 +100,9 @@ impl std::str::FromStr for ProviderType {
             "antigravity" => Ok(ProviderType::Antigravity),
             "vertex" => Ok(ProviderType::Vertex),
             "gemini_api_key" => Ok(ProviderType::GeminiApiKey),
+            "codex" => Ok(ProviderType::Codex),
+            "claude_oauth" => Ok(ProviderType::ClaudeOAuth),
+            "iflow" => Ok(ProviderType::IFlow),
             _ => Err(format!("Invalid provider: {s}")),
         }
     }
@@ -1011,6 +1026,12 @@ async fn check_api_compatibility(
             ("gemini-2.5-flash", "basic"),
             ("gemini-2.5-flash", "tool_call"),
         ],
+        ProviderType::Codex => vec![("gpt-4.1", "basic"), ("gpt-4.1", "tool_call")],
+        ProviderType::ClaudeOAuth => vec![
+            ("claude-sonnet-4-5", "basic"),
+            ("claude-sonnet-4-5", "tool_call"),
+        ],
+        ProviderType::IFlow => vec![("gpt-4o", "basic"), ("gpt-4o", "tool_call")],
         ProviderType::OpenAI | ProviderType::Claude => vec![],
     };
 
