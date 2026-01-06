@@ -148,6 +148,7 @@ export {
   AlertCircle,
   AlertTriangle,
   CheckCircle,
+  XCircle,
   Info,
   Heart,
   HeartOff,
@@ -188,6 +189,12 @@ export {
   Timer,
   BarChart3,
   MonitorDown,
+  Terminal,
+  Building,
+  Cloud,
+  Server,
+  Mail,
+  Sparkles,
 } from "lucide-react";
 
 // ============================================================================
