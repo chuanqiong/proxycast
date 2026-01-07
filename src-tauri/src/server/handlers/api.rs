@@ -23,6 +23,7 @@ use axum::{
     Json,
 };
 use chrono::Utc;
+use serde_json::json;
 use std::collections::HashMap;
 
 use crate::converter::anthropic_to_openai::convert_anthropic_to_openai;
@@ -660,6 +661,29 @@ pub async fn chat_completions(
         provider, ctx.resolved_model
     );
 
+    // 如果没有设置默认 Provider，返回错误
+    let provider = match provider {
+        Some(p) => p,
+        None => {
+            eprintln!("[CHAT_COMPLETIONS] 未设置默认 Provider，返回错误");
+            state.logs.write().await.add(
+                "error",
+                &format!("[ROUTE] request_id={} 未设置默认 Provider", ctx.request_id),
+            );
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "error": {
+                        "message": "未设置默认 Provider，请先在设置中选择一个默认 Provider",
+                        "type": "configuration_error",
+                        "code": "no_default_provider"
+                    }
+                })),
+            )
+                .into_response();
+        }
+    };
+
     // 更新请求中的模型名为解析后的模型
     if ctx.resolved_model != ctx.original_model {
         request.model = ctx.resolved_model.clone();
@@ -723,58 +747,105 @@ pub async fn chat_completions(
         ),
     );
 
+    // 从请求头提取 X-Provider-Id（用于精确路由）
+    let provider_id_header = headers
+        .get("x-provider-id")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_lowercase());
+
     // 尝试从凭证池中选择凭证
-    // 优先使用路由规则选择的 provider，如果找不到再回退到 selected_provider
+    // 如果指定了 X-Provider-Id，优先使用它（不降级）
+    // 否则使用路由规则选择的 provider，如果找不到再回退到 selected_provider
     eprintln!("[CHAT_COMPLETIONS] 开始选择凭证...");
     let credential = match &state.db {
         Some(db) => {
-            // 首先尝试使用路由规则选择的 provider
-            let provider_str = provider.to_string();
-            eprintln!(
-                "[CHAT_COMPLETIONS] 尝试从凭证池选择: provider={}, model={}",
-                provider_str, request.model
-            );
-            let cred = state
-                .pool_service
-                .select_credential(db, &provider_str, Some(&request.model))
-                .ok()
-                .flatten();
-
-            if cred.is_some() {
-                eprintln!("[CHAT_COMPLETIONS] 找到凭证: provider={}", provider_str);
-            } else {
-                eprintln!("[CHAT_COMPLETIONS] 未找到凭证: provider={}", provider_str);
-            }
-
-            // 如果路由规则的 provider 没有找到凭证，回退到 selected_provider
-            if cred.is_none() && provider_str != selected_provider {
+            // 如果指定了 X-Provider-Id，优先使用它（不降级）
+            if let Some(ref explicit_provider_id) = provider_id_header {
                 eprintln!(
-                    "[CHAT_COMPLETIONS] 回退到 selected_provider: {}",
-                    selected_provider
+                    "[CHAT_COMPLETIONS] 使用 X-Provider-Id 指定的 provider: {}",
+                    explicit_provider_id
                 );
-                state.logs.write().await.add(
-                    "debug",
-                    &format!(
-                        "[ROUTE] No credential found for routed provider '{}', trying selected_provider '{}'",
-                        provider_str, selected_provider
-                    ),
-                );
-                let fallback_cred = state
+                let cred = state
                     .pool_service
-                    .select_credential(db, &selected_provider, Some(&request.model))
+                    .select_credential(db, explicit_provider_id, Some(&request.model))
                     .ok()
                     .flatten();
-                if fallback_cred.is_some() {
+
+                if cred.is_none() {
                     eprintln!(
-                        "[CHAT_COMPLETIONS] 回退凭证找到: provider={}",
+                        "[CHAT_COMPLETIONS] X-Provider-Id '{}' 没有可用凭证，不进行降级",
+                        explicit_provider_id
+                    );
+                    state.logs.write().await.add(
+                        "error",
+                        &format!(
+                            "[ROUTE] No available credentials for explicitly specified provider '{}', refusing to fallback",
+                            explicit_provider_id
+                        ),
+                    );
+                    // 返回错误，不降级
+                    return (
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        Json(json!({
+                            "error": {
+                                "message": format!("No available credentials for provider '{}'", explicit_provider_id),
+                                "type": "provider_unavailable",
+                                "code": "no_credentials"
+                            }
+                        })),
+                    )
+                        .into_response();
+                }
+                cred
+            } else {
+                // 原有逻辑：使用路由规则选择的 provider
+                let provider_str = provider.to_string();
+                eprintln!(
+                    "[CHAT_COMPLETIONS] 尝试从凭证池选择: provider={}, model={}",
+                    provider_str, request.model
+                );
+                let cred = state
+                    .pool_service
+                    .select_credential(db, &provider_str, Some(&request.model))
+                    .ok()
+                    .flatten();
+
+                if cred.is_some() {
+                    eprintln!("[CHAT_COMPLETIONS] 找到凭证: provider={}", provider_str);
+                } else {
+                    eprintln!("[CHAT_COMPLETIONS] 未找到凭证: provider={}", provider_str);
+                }
+
+                // 如果路由规则的 provider 没有找到凭证，回退到 selected_provider
+                if cred.is_none() && provider_str != selected_provider {
+                    eprintln!(
+                        "[CHAT_COMPLETIONS] 回退到 selected_provider: {}",
                         selected_provider
                     );
+                    state.logs.write().await.add(
+                        "debug",
+                        &format!(
+                            "[ROUTE] No credential found for routed provider '{}', trying selected_provider '{}'",
+                            provider_str, selected_provider
+                        ),
+                    );
+                    let fallback_cred = state
+                        .pool_service
+                        .select_credential(db, &selected_provider, Some(&request.model))
+                        .ok()
+                        .flatten();
+                    if fallback_cred.is_some() {
+                        eprintln!(
+                            "[CHAT_COMPLETIONS] 回退凭证找到: provider={}",
+                            selected_provider
+                        );
+                    } else {
+                        eprintln!("[CHAT_COMPLETIONS] 回退凭证也未找到!");
+                    }
+                    fallback_cred
                 } else {
-                    eprintln!("[CHAT_COMPLETIONS] 回退凭证也未找到!");
+                    cred
                 }
-                fallback_cred
-            } else {
-                cred
             }
         }
         None => {
@@ -1676,6 +1747,27 @@ pub async fn anthropic_messages(
     // 使用 RequestProcessor 解析模型别名和路由
     let provider = state.processor.resolve_and_route(&mut ctx).await;
 
+    // 如果没有设置默认 Provider，返回错误
+    let provider = match provider {
+        Some(p) => p,
+        None => {
+            state.logs.write().await.add(
+                "error",
+                &format!("[ROUTE] request_id={} 未设置默认 Provider", ctx.request_id),
+            );
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({
+                    "error": {
+                        "type": "configuration_error",
+                        "message": "未设置默认 Provider，请先在设置中选择一个默认 Provider"
+                    }
+                })),
+            )
+                .into_response();
+        }
+    };
+
     // 更新请求中的模型名为解析后的模型
     if ctx.resolved_model != ctx.original_model {
         request.model = ctx.resolved_model.clone();
@@ -1757,24 +1849,69 @@ pub async fn anthropic_messages(
         ),
     );
 
-    // 尝试从凭证池中选择凭证（带智能降级）
-    // 优先使用路由结果 provider，而不是 selected_provider
-    // 这确保了路由规则（如 claude-* → Kiro）能够正确生效
+    // 从请求头提取 X-Provider-Id（用于精确路由）
+    let provider_id_header = headers
+        .get("x-provider-id")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_lowercase());
+
+    // 尝试从凭证池中选择凭证
+    // 如果指定了 X-Provider-Id，优先使用它（不降级）
+    // 否则使用路由结果 provider（带智能降级）
     let credential_provider = provider.to_string().to_lowercase();
     let credential = match &state.db {
         Some(db) => {
-            // 根据路由结果选择凭证
-            state
-                .pool_service
-                .select_credential_with_fallback(
-                    db,
-                    &state.api_key_service,
-                    &credential_provider,
-                    Some(&request.model),
-                    None, // provider_id_hint 可从路由或请求头提取
-                )
-                .ok()
-                .flatten()
+            // 如果指定了 X-Provider-Id，优先使用它（不降级）
+            if let Some(ref explicit_provider_id) = provider_id_header {
+                eprintln!(
+                    "[AMP] 使用 X-Provider-Id 指定的 provider: {}",
+                    explicit_provider_id
+                );
+                let cred = state
+                    .pool_service
+                    .select_credential(db, explicit_provider_id, Some(&request.model))
+                    .ok()
+                    .flatten();
+
+                if cred.is_none() {
+                    eprintln!(
+                        "[AMP] X-Provider-Id '{}' 没有可用凭证，不进行降级",
+                        explicit_provider_id
+                    );
+                    state.logs.write().await.add(
+                        "error",
+                        &format!(
+                            "[ROUTE] No available credentials for explicitly specified provider '{}', refusing to fallback",
+                            explicit_provider_id
+                        ),
+                    );
+                    // 返回错误，不降级
+                    return (
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        Json(json!({
+                            "error": {
+                                "type": "provider_unavailable",
+                                "message": format!("No available credentials for provider '{}'", explicit_provider_id)
+                            }
+                        })),
+                    )
+                        .into_response();
+                }
+                cred
+            } else {
+                // 原有逻辑：根据路由结果选择凭证（带智能降级）
+                state
+                    .pool_service
+                    .select_credential_with_fallback(
+                        db,
+                        &state.api_key_service,
+                        &credential_provider,
+                        Some(&request.model),
+                        None, // provider_id_hint 可从路由或请求头提取
+                    )
+                    .ok()
+                    .flatten()
+            }
         }
         None => None,
     };

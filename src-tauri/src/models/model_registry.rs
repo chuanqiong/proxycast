@@ -159,7 +159,9 @@ impl std::str::FromStr for ModelTier {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ModelSource {
-    /// 从 models.dev API 获取
+    /// 从内嵌资源加载（构建时打包）
+    Embedded,
+    /// 从 models.dev API 获取（已弃用）
     ModelsDev,
     /// 本地硬编码（国内模型等）
     Local,
@@ -176,6 +178,7 @@ impl Default for ModelSource {
 impl std::fmt::Display for ModelSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Embedded => write!(f, "embedded"),
             Self::ModelsDev => write!(f, "models.dev"),
             Self::Local => write!(f, "local"),
             Self::Custom => write!(f, "custom"),
@@ -188,6 +191,7 @@ impl std::str::FromStr for ModelSource {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
+            "embedded" => Ok(Self::Embedded),
             "models.dev" | "modelsdev" => Ok(Self::ModelsDev),
             "local" => Ok(Self::Local),
             "custom" => Ok(Self::Custom),

@@ -178,6 +178,58 @@ export interface EventsApi {
 }
 
 // ============================================================================
+// RPC 操作（用于 Binary 插件通信）
+// ============================================================================
+
+/** RPC 通知回调 */
+export type RpcNotificationCallback<T = unknown> = (params: T) => void;
+
+/** RPC 操作接口 */
+export interface RpcApi {
+  /**
+   * 发送 RPC 请求并等待响应
+   * @param method RPC 方法名
+   * @param params 请求参数
+   * @returns 响应结果
+   */
+  call<T = unknown>(method: string, params?: unknown): Promise<T>;
+
+  /**
+   * 订阅 RPC 通知
+   * @param event 通知事件名
+   * @param callback 回调函数
+   * @returns 取消订阅函数
+   */
+  on<T = unknown>(
+    event: string,
+    callback: RpcNotificationCallback<T>,
+  ): Unsubscribe;
+
+  /**
+   * 取消订阅 RPC 通知
+   * @param event 通知事件名
+   * @param callback 回调函数
+   */
+  off<T = unknown>(event: string, callback: RpcNotificationCallback<T>): void;
+
+  /**
+   * 检查 RPC 连接状态
+   * @returns 是否已连接
+   */
+  isConnected(): boolean;
+
+  /**
+   * 初始化 RPC 连接（启动插件进程）
+   */
+  connect(): Promise<void>;
+
+  /**
+   * 关闭 RPC 连接（停止插件进程）
+   */
+  disconnect(): Promise<void>;
+}
+
+// ============================================================================
 // 存储操作
 // ============================================================================
 
@@ -350,6 +402,9 @@ export interface ProxyCastPluginSDK {
 
   /** 插件配置操作 */
   readonly config: PluginConfigApi;
+
+  /** RPC 操作（用于 Binary 插件通信） */
+  readonly rpc: RpcApi;
 }
 
 // ============================================================================

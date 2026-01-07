@@ -459,17 +459,11 @@ async fn handle_ws_chat_completions(
     // 获取默认 provider
     let default_provider = state.default_provider.read().await.clone();
 
-    // 尝试从凭证池中选择凭证（带智能降级）
+    // 尝试从凭证池中选择凭证（不降级，指定什么就用什么）
     let credential = match &state.db {
         Some(db) => state
             .pool_service
-            .select_credential_with_fallback(
-                db,
-                &state.api_key_service,
-                &default_provider,
-                Some(&request.model),
-                None, // provider_id_hint
-            )
+            .select_credential(db, &default_provider, Some(&request.model))
             .ok()
             .flatten(),
         None => None,
@@ -487,81 +481,14 @@ async fn handle_ws_chat_completions(
             Err(e) => WsProtoMessage::Error(WsError::upstream(Some(request_id.to_string()), e)),
         }
     } else {
-        // 回退到 Kiro provider
-        let kiro = state.kiro.read().await;
-        match kiro.call_api(&request).await {
-            Ok(resp) => {
-                if resp.status().is_success() {
-                    match resp.text().await {
-                        Ok(body) => {
-                            let parsed = parse_cw_response(&body);
-                            let has_tool_calls = !parsed.tool_calls.is_empty();
-
-                            let message = if has_tool_calls {
-                                serde_json::json!({
-                                    "role": "assistant",
-                                    "content": if parsed.content.is_empty() { serde_json::Value::Null } else { serde_json::json!(parsed.content) },
-                                    "tool_calls": parsed.tool_calls.iter().map(|tc| {
-                                        serde_json::json!({
-                                            "id": tc.id,
-                                            "type": "function",
-                                            "function": {
-                                                "name": tc.function.name,
-                                                "arguments": tc.function.arguments
-                                            }
-                                        })
-                                    }).collect::<Vec<_>>()
-                                })
-                            } else {
-                                serde_json::json!({
-                                    "role": "assistant",
-                                    "content": parsed.content
-                                })
-                            };
-
-                            let response = serde_json::json!({
-                                "id": format!("chatcmpl-{}", uuid::Uuid::new_v4()),
-                                "object": "chat.completion",
-                                "created": std::time::SystemTime::now()
-                                    .duration_since(std::time::UNIX_EPOCH)
-                                    .unwrap_or_default()
-                                    .as_secs(),
-                                "model": request.model,
-                                "choices": [{
-                                    "index": 0,
-                                    "message": message,
-                                    "finish_reason": if has_tool_calls { "tool_calls" } else { "stop" }
-                                }],
-                                "usage": {
-                                    "prompt_tokens": 0,
-                                    "completion_tokens": 0,
-                                    "total_tokens": 0
-                                }
-                            });
-
-                            WsProtoMessage::Response(WsApiResponse {
-                                request_id: request_id.to_string(),
-                                payload: response,
-                            })
-                        }
-                        Err(e) => WsProtoMessage::Error(WsError::internal(
-                            Some(request_id.to_string()),
-                            e.to_string(),
-                        )),
-                    }
-                } else {
-                    let body = resp.text().await.unwrap_or_default();
-                    WsProtoMessage::Error(WsError::upstream(
-                        Some(request_id.to_string()),
-                        format!("Upstream error: {}", body),
-                    ))
-                }
-            }
-            Err(e) => WsProtoMessage::Error(WsError::internal(
-                Some(request_id.to_string()),
-                e.to_string(),
-            )),
-        }
+        // 不再回退到 Kiro provider，直接返回错误
+        WsProtoMessage::Error(WsError::internal(
+            Some(request_id.to_string()),
+            format!(
+                "No available credentials for provider '{}'. Please add credentials in the Provider Pool.",
+                default_provider
+            ),
+        ))
     }
 }
 
@@ -602,13 +529,7 @@ async fn handle_ws_anthropic_messages(
     let credential = match &state.db {
         Some(db) => state
             .pool_service
-            .select_credential_with_fallback(
-                db,
-                &state.api_key_service,
-                &default_provider,
-                Some(&request.model),
-                None, // provider_id_hint
-            )
+            .select_credential(db, &default_provider, Some(&request.model))
             .ok()
             .flatten(),
         None => None,
@@ -624,59 +545,14 @@ async fn handle_ws_anthropic_messages(
             Err(e) => WsProtoMessage::Error(WsError::upstream(Some(request_id.to_string()), e)),
         }
     } else {
-        // 回退到 Kiro provider
-        let kiro = state.kiro.read().await;
-
-        // 转换为 OpenAI 格式
-        let openai_request = convert_anthropic_to_openai(&request);
-
-        match kiro.call_api(&openai_request).await {
-            Ok(resp) => {
-                if resp.status().is_success() {
-                    match resp.text().await {
-                        Ok(body) => {
-                            let parsed = parse_cw_response(&body);
-
-                            // 转换为 Anthropic 格式响应
-                            let response = serde_json::json!({
-                                "id": format!("msg_{}", uuid::Uuid::new_v4()),
-                                "type": "message",
-                                "role": "assistant",
-                                "content": [{
-                                    "type": "text",
-                                    "text": parsed.content
-                                }],
-                                "model": request.model,
-                                "stop_reason": "end_turn",
-                                "usage": {
-                                    "input_tokens": 0,
-                                    "output_tokens": 0
-                                }
-                            });
-
-                            WsProtoMessage::Response(WsApiResponse {
-                                request_id: request_id.to_string(),
-                                payload: response,
-                            })
-                        }
-                        Err(e) => WsProtoMessage::Error(WsError::internal(
-                            Some(request_id.to_string()),
-                            e.to_string(),
-                        )),
-                    }
-                } else {
-                    let body = resp.text().await.unwrap_or_default();
-                    WsProtoMessage::Error(WsError::upstream(
-                        Some(request_id.to_string()),
-                        format!("Upstream error: {}", body),
-                    ))
-                }
-            }
-            Err(e) => WsProtoMessage::Error(WsError::internal(
-                Some(request_id.to_string()),
-                e.to_string(),
-            )),
-        }
+        // 不再回退到 Kiro provider，直接返回错误
+        WsProtoMessage::Error(WsError::internal(
+            Some(request_id.to_string()),
+            format!(
+                "No available credentials for provider '{}'. Please add credentials in the Provider Pool.",
+                default_provider
+            ),
+        ))
     }
 }
 

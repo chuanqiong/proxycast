@@ -139,18 +139,23 @@ export function useAgentChat() {
 
   // 当 provider 改变时，检查当前模型是否兼容
   // 如果不兼容，自动切换到新 provider 的第一个模型
+  // 注意：model 不能放在依赖中，否则会导致无限循环
   useEffect(() => {
     const currentProviderModels = providerConfig[providerType]?.models || [];
-    if (
-      currentProviderModels.length > 0 &&
-      !currentProviderModels.includes(model)
-    ) {
-      console.log(
-        `[useAgentChat] 模型 ${model} 不在 ${providerType} 支持列表中，自动切换到 ${currentProviderModels[0]}`,
-      );
-      setModel(currentProviderModels[0]);
+    // 只有当模型列表非空时才检查兼容性
+    if (currentProviderModels.length > 0) {
+      // 使用 setModel 的函数形式来访问当前 model 值，避免将 model 放入依赖
+      setModel((currentModel) => {
+        if (!currentProviderModels.includes(currentModel)) {
+          console.log(
+            `[useAgentChat] 模型 ${currentModel} 不在 ${providerType} 支持列表中，自动切换到 ${currentProviderModels[0]}`,
+          );
+          return currentProviderModels[0];
+        }
+        return currentModel;
+      });
     }
-  }, [providerType, providerConfig, model]);
+  }, [providerType, providerConfig]);
 
   useEffect(() => {
     saveTransient("agent_curr_sessionId", sessionId);

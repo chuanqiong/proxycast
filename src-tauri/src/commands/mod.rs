@@ -18,6 +18,7 @@ pub mod oauth_plugin_cmd;
 pub mod orchestrator_cmd;
 pub mod plugin_cmd;
 pub mod plugin_install_cmd;
+pub mod plugin_rpc_cmd;
 pub mod prompt_cmd;
 pub mod provider_pool_cmd;
 pub mod resilience_cmd;

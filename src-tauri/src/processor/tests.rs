@@ -30,7 +30,8 @@ async fn test_request_processor_components() {
     // 验证路由器可以正常使用
     {
         let router = processor.router.read().await;
-        assert_eq!(router.default_provider(), ProviderType::Kiro);
+        // 默认使用 Kiro
+        assert_eq!(router.default_provider(), Some(ProviderType::Kiro));
     }
 
     // 验证映射器可以正常使用
@@ -118,11 +119,11 @@ async fn test_route_model_returns_default() {
 
     // 所有模型都应返回默认 Provider
     let (provider, is_default) = processor.route_model("gemini-2.5-flash").await;
-    assert_eq!(provider, ProviderType::Kiro);
+    assert_eq!(provider, Some(ProviderType::Kiro));
     assert!(is_default);
 
     let (provider, is_default) = processor.route_model("claude-sonnet-4-5").await;
-    assert_eq!(provider, ProviderType::Kiro);
+    assert_eq!(provider, Some(ProviderType::Kiro));
     assert!(is_default);
 }
 
@@ -138,7 +139,7 @@ async fn test_route_for_context() {
     // 路由并更新上下文
     let provider = processor.route_for_context(&mut ctx).await;
 
-    assert_eq!(provider, ProviderType::Kiro);
+    assert_eq!(provider, Some(ProviderType::Kiro));
     assert_eq!(ctx.provider, Some(ProviderType::Kiro));
 }
 
@@ -160,7 +161,7 @@ async fn test_resolve_and_route() {
     // gpt-4 -> claude-sonnet-4-5 -> Kiro (默认)
     assert_eq!(ctx.original_model, "gpt-4");
     assert_eq!(ctx.resolved_model, "claude-sonnet-4-5");
-    assert_eq!(provider, ProviderType::Kiro);
+    assert_eq!(provider, Some(ProviderType::Kiro));
     assert_eq!(ctx.provider, Some(ProviderType::Kiro));
 }
 

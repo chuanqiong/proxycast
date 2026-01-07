@@ -2,17 +2,20 @@
  * 插件 UI 渲染器组件
  *
  * 根据 pluginId 渲染对应的插件 UI 组件
- * 支持内置插件组件映射和错误处理
+ * 支持内置插件组件映射、动态加载外部插件和错误处理
  *
  * _需求: 3.2_
  */
 
-import React from "react";
-import { AlertCircle, Package } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { AlertCircle, Package, Loader2 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
 import { MachineIdTool } from "@/components/tools/machine-id/MachineIdTool";
 import { BrowserInterceptorTool } from "@/components/tools/browser-interceptor/BrowserInterceptorTool";
 import { FlowMonitorPage } from "@/pages";
 import { ConfigManagementPage } from "@/components/config/ConfigManagementPage";
+import { PluginUIRenderer as DynamicPluginRenderer } from "@/lib/plugin-loader/PluginUIRenderer";
+import { usePluginSDK } from "@/lib/plugin-sdk";
 
 /**
  * 页面类型定义
@@ -39,8 +42,6 @@ interface PluginUIRendererProps {
 
 /**
  * 插件 UI 加载错误组件
- *
- * 当插件 UI 组件加载失败时显示友好的错误提示
  */
 function PluginUIError({
   pluginId,
@@ -69,8 +70,6 @@ function PluginUIError({
 
 /**
  * 插件未找到组件
- *
- * 当请求的插件不存在时显示提示
  */
 function PluginNotFound({ pluginId }: { pluginId: string }) {
   return (
@@ -94,10 +93,19 @@ function PluginNotFound({ pluginId }: { pluginId: string }) {
 }
 
 /**
+ * 加载中组件
+ */
+function PluginLoading() {
+  return (
+    <div className="flex flex-col items-center justify-center h-96 space-y-4">
+      <Loader2 className="w-12 h-12 text-primary animate-spin" />
+      <p className="text-gray-600 dark:text-gray-400">加载插件中...</p>
+    </div>
+  );
+}
+
+/**
  * 内置插件组件映射
- *
- * 将插件 ID 映射到对应的 React 组件
- * 支持 machine-id-tool 和 browser-interception 插件
  */
 const builtinPluginComponents: Record<
   string,
@@ -110,33 +118,145 @@ const builtinPluginComponents: Record<
 };
 
 /**
+ * 已安装插件信息
+ */
+interface InstalledPlugin {
+  id: string;
+  name: string;
+  install_path: string;
+  has_ui: boolean;
+  ui_entry?: string;
+}
+
+/**
+ * 动态插件渲染器
+ * 用于加载外部安装的插件 UI
+ */
+function DynamicPluginUIRenderer({
+  pluginId,
+  pluginsDir,
+  uiEntry,
+}: {
+  pluginId: string;
+  pluginsDir: string;
+  uiEntry?: string;
+}) {
+  const { sdk } = usePluginSDK(pluginId);
+
+  return (
+    <DynamicPluginRenderer
+      pluginsDir={pluginsDir}
+      pluginId={pluginId}
+      uiEntry={uiEntry || "dist/index.js"}
+      sdk={sdk}
+      fallback={<PluginNotFound pluginId={pluginId} />}
+    />
+  );
+}
+
+/**
  * 插件 UI 渲染器
  *
  * 根据 pluginId 渲染对应的插件 UI 组件
  * - 对于内置插件，直接渲染对应的 React 组件
+ * - 对于外部安装的插件，动态加载其 UI
  * - 对于未知插件，显示错误提示
- *
- * @param pluginId - 插件 ID
- * @param onNavigate - 页面导航回调
  */
 export function PluginUIRenderer({
   pluginId,
   onNavigate,
 }: PluginUIRendererProps) {
-  // 查找内置插件组件
-  const Component = builtinPluginComponents[pluginId];
+  const [loading, setLoading] = useState(true);
+  const [pluginInfo, setPluginInfo] = useState<InstalledPlugin | null>(null);
+  const [pluginsDir, setPluginsDir] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
 
-  if (Component) {
+  // 查找内置插件组件
+  const BuiltinComponent = builtinPluginComponents[pluginId];
+
+  // 对于非内置插件，检查是否已安装并有 UI
+  useEffect(() => {
+    // 如果是内置插件，跳过检查
+    if (BuiltinComponent) {
+      setLoading(false);
+      return;
+    }
+
+    async function checkPlugin() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        // 获取插件目录
+        const dir = await invoke<string>("get_plugins_dir");
+        setPluginsDir(dir);
+
+        // 检查插件是否已安装
+        const installed = await invoke<boolean>("is_plugin_installed", {
+          pluginId,
+        });
+
+        if (!installed) {
+          setPluginInfo(null);
+          setLoading(false);
+          return;
+        }
+
+        // 获取插件信息
+        const plugins = await invoke<InstalledPlugin[]>(
+          "list_installed_plugins",
+        );
+        const plugin = plugins.find((p) => p.id === pluginId);
+
+        if (plugin) {
+          setPluginInfo(plugin);
+        } else {
+          setPluginInfo(null);
+        }
+      } catch (err) {
+        console.error("检查插件失败:", err);
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    checkPlugin();
+  }, [pluginId, BuiltinComponent]);
+
+  // 加载中
+  if (loading) {
+    return <PluginLoading />;
+  }
+
+  // 如果是内置插件，直接渲染
+  if (BuiltinComponent) {
     try {
-      return <Component onNavigate={onNavigate} />;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "未知错误";
+      return <BuiltinComponent onNavigate={onNavigate} />;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "未知错误";
       return <PluginUIError pluginId={pluginId} error={errorMessage} />;
     }
   }
 
-  // 插件未找到
-  return <PluginNotFound pluginId={pluginId} />;
+  // 错误
+  if (error) {
+    return <PluginUIError pluginId={pluginId} error={error} />;
+  }
+
+  // 插件未安装
+  if (!pluginInfo) {
+    return <PluginNotFound pluginId={pluginId} />;
+  }
+
+  // 动态加载插件 UI
+  return (
+    <DynamicPluginUIRenderer
+      pluginId={pluginId}
+      pluginsDir={pluginsDir}
+      uiEntry={pluginInfo.ui_entry}
+    />
+  );
 }
 
 export default PluginUIRenderer;

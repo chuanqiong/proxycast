@@ -50,7 +50,11 @@ impl RoutingStep {
 
         // 使用路由规则（如果没有匹配的规则，会返回默认 Provider）
         let result = router.route(model);
-        Ok(result.provider)
+
+        // 如果没有设置默认 Provider，返回错误
+        result.provider.ok_or_else(|| {
+            StepError::Routing("未设置默认 Provider，请先在设置中选择一个默认 Provider".to_string())
+        })
     }
 }
 

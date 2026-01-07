@@ -42,6 +42,7 @@ const PLUGIN_GLOBAL_NAMES: Record<string, string> = {
   "gemini-provider": "GeminiProviderPlugin",
   "antigravity-provider": "AntigravityProviderPlugin",
   "codex-provider": "CodexProviderPlugin",
+  "terminal-plugin": "TerminalPlugin",
 };
 
 /**
@@ -51,25 +52,37 @@ const PLUGIN_GLOBAL_NAMES: Record<string, string> = {
 function getPluginGlobalName(pluginPath: string): string {
   // 从路径中提取插件 ID
   const parts = pluginPath.split("/");
-  const pluginIdIndex = parts.findIndex((p) => p.endsWith("-provider"));
-  const pluginId = pluginIdIndex >= 0 ? parts[pluginIdIndex] : null;
+
+  // 查找插件 ID（在 plugins 目录后的那个目录名）
+  const pluginsIndex = parts.findIndex((p) => p === "plugins");
+  const pluginId =
+    pluginsIndex >= 0 && pluginsIndex + 1 < parts.length
+      ? parts[pluginsIndex + 1]
+      : null;
+
+  console.log(`[PluginLoader] 从路径提取插件 ID: ${pluginId}`);
 
   // 查找预定义的全局变量名
   if (pluginId && PLUGIN_GLOBAL_NAMES[pluginId]) {
+    console.log(
+      `[PluginLoader] 使用预定义全局变量名: ${PLUGIN_GLOBAL_NAMES[pluginId]}`,
+    );
     return PLUGIN_GLOBAL_NAMES[pluginId];
   }
 
   // 尝试从插件 ID 推断全局变量名
-  // 例如: my-plugin -> MyPluginPlugin
+  // 例如: my-plugin -> MyPlugin
   if (pluginId) {
     const camelCase = pluginId
       .split("-")
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join("");
+    console.log(`[PluginLoader] 推断全局变量名: ${camelCase}`);
     return camelCase;
   }
 
   // 默认回退
+  console.log(`[PluginLoader] 使用默认全局变量名: KiroProviderPlugin`);
   return "KiroProviderPlugin";
 }
 

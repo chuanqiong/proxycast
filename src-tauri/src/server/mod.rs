@@ -1029,17 +1029,11 @@ async fn gemini_generate_content(
     // 获取默认 provider
     let default_provider = state.default_provider.read().await.clone();
 
-    // 尝试从凭证池中选择凭证（带智能降级）
+    // 尝试从凭证池中选择凭证（不降级，指定什么就用什么）
     let credential = match &state.db {
         Some(db) => state
             .pool_service
-            .select_credential_with_fallback(
-                db,
-                &state.api_key_service,
-                &default_provider,
-                Some(model),
-                None, // provider_id_hint
-            )
+            .select_credential(db, &default_provider, Some(model))
             .ok()
             .flatten(),
         None => None,
@@ -1049,10 +1043,10 @@ async fn gemini_generate_content(
         Some(c) => c,
         None => {
             return (
-                StatusCode::NOT_FOUND,
+                StatusCode::SERVICE_UNAVAILABLE,
                 Json(serde_json::json!({
                     "error": {
-                        "message": "没有可用的凭证。您可以在 API Key Provider 中配置 API Key 作为降级选项。"
+                        "message": format!("No available credentials for provider '{}'. Please add credentials in the Provider Pool.", default_provider)
                     }
                 })),
             )
@@ -1311,7 +1305,7 @@ async fn anthropic_messages_with_selector(
         ),
     );
 
-    // 尝试解析凭证（带智能降级）
+    // 尝试解析凭证（不降级，指定什么就用什么）
     let credential = match &state.db {
         Some(db) => {
             // 首先尝试按名称查找
@@ -1322,14 +1316,12 @@ async fn anthropic_messages_with_selector(
             else if let Ok(Some(cred)) = state.pool_service.get_by_uuid(db, &selector) {
                 Some(cred)
             }
-            // 最后尝试按 provider 类型轮询（带智能降级）
-            else if let Ok(Some(cred)) = state.pool_service.select_credential_with_fallback(
-                db,
-                &state.api_key_service,
-                &selector,
-                Some(&request.model),
-                None, // provider_id_hint
-            ) {
+            // 最后尝试按 provider 类型选择（不降级）
+            else if let Ok(Some(cred)) =
+                state
+                    .pool_service
+                    .select_credential(db, &selector, Some(&request.model))
+            {
                 Some(cred)
             } else {
                 None
@@ -1355,16 +1347,24 @@ async fn anthropic_messages_with_selector(
             handlers::call_provider_anthropic(&state, &cred, &request, None).await
         }
         None => {
-            // 回退到默认 Kiro provider
+            // 不再回退到默认 provider，直接返回错误
             state.logs.write().await.add(
-                "warn",
+                "error",
                 &format!(
-                    "[ROUTE] Credential not found for selector '{}', falling back to default",
+                    "[ROUTE] No available credentials for selector '{}', refusing to fallback",
                     selector
                 ),
             );
-            // 调用原有的 Kiro 处理逻辑
-            anthropic_messages_internal(&state, &request).await
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "error": {
+                        "type": "provider_unavailable",
+                        "message": format!("No available credentials for selector '{}'", selector)
+                    }
+                })),
+            )
+                .into_response()
         }
     }
 }
@@ -1392,20 +1392,18 @@ async fn chat_completions_with_selector(
         ),
     );
 
-    // 尝试解析凭证（带智能降级）
+    // 尝试解析凭证（不降级，指定什么就用什么）
     let credential = match &state.db {
         Some(db) => {
             if let Ok(Some(cred)) = state.pool_service.get_by_name(db, &selector) {
                 Some(cred)
             } else if let Ok(Some(cred)) = state.pool_service.get_by_uuid(db, &selector) {
                 Some(cred)
-            } else if let Ok(Some(cred)) = state.pool_service.select_credential_with_fallback(
-                db,
-                &state.api_key_service,
-                &selector,
-                Some(&request.model),
-                None, // provider_id_hint
-            ) {
+            } else if let Ok(Some(cred)) =
+                state
+                    .pool_service
+                    .select_credential(db, &selector, Some(&request.model))
+            {
                 Some(cred)
             } else {
                 None
@@ -1430,14 +1428,25 @@ async fn chat_completions_with_selector(
             handlers::call_provider_openai(&state, &cred, &request, None).await
         }
         None => {
+            // 不再回退到默认 provider，直接返回错误
             state.logs.write().await.add(
-                "warn",
+                "error",
                 &format!(
-                    "[ROUTE] Credential not found for selector '{}', falling back to default",
+                    "[ROUTE] No available credentials for selector '{}', refusing to fallback",
                     selector
                 ),
             );
-            chat_completions_internal(&state, &request).await
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "error": {
+                        "message": format!("No available credentials for selector '{}'", selector),
+                        "type": "provider_unavailable",
+                        "code": "no_credentials"
+                    }
+                })),
+            )
+                .into_response()
         }
     }
 }
@@ -1487,7 +1496,7 @@ async fn amp_chat_completions(
         ),
     );
 
-    // 尝试根据 provider 名称选择凭证（带智能降级）
+    // 尝试根据 provider 名称选择凭证（不降级，指定什么就用什么）
     eprintln!(
         "[AMP] 开始查找凭证: provider={}, model={}, db={}",
         provider,
@@ -1497,21 +1506,16 @@ async fn amp_chat_completions(
     let credential = match &state.db {
         Some(db) => {
             eprintln!(
-                "[AMP] 调用 select_credential_with_fallback, provider_id_hint={}",
+                "[AMP] 使用 select_credential 查找凭证（不降级）: provider={}",
                 provider
             );
-            // 首先尝试按 provider 类型选择（带智能降级）
-            if let Ok(Some(cred)) = state.pool_service.select_credential_with_fallback(
-                db,
-                &state.api_key_service,
-                &provider,
-                Some(&request.model),
-                Some(&provider), // provider_id_hint 使用路由中的 provider 名称
-            ) {
-                eprintln!(
-                    "[AMP] select_credential_with_fallback 找到凭证: {:?}",
-                    cred.name
-                );
+            // 使用 select_credential 而不是 select_credential_with_fallback，禁止降级
+            if let Ok(Some(cred)) =
+                state
+                    .pool_service
+                    .select_credential(db, &provider, Some(&request.model))
+            {
+                eprintln!("[AMP] select_credential 找到凭证: {:?}", cred.name);
                 Some(cred)
             }
             // 然后尝试按名称查找
@@ -1524,7 +1528,10 @@ async fn amp_chat_completions(
                 eprintln!("[AMP] get_by_uuid 找到凭证: {:?}", cred.name);
                 Some(cred)
             } else {
-                eprintln!("[AMP] 未找到任何凭证 for provider '{}'", provider);
+                eprintln!(
+                    "[AMP] 未找到任何凭证 for provider '{}'，不进行降级",
+                    provider
+                );
                 None
             }
         }
@@ -1549,14 +1556,25 @@ async fn amp_chat_completions(
             handlers::call_provider_openai(&state, &cred, &request, None).await
         }
         None => {
+            // 不再回退到默认 provider，直接返回错误
             state.logs.write().await.add(
-                "warn",
+                "error",
                 &format!(
-                    "[AMP] Credential not found for provider '{}', falling back to default",
+                    "[AMP] No available credentials for provider '{}', refusing to fallback",
                     provider
                 ),
             );
-            chat_completions_internal(&state, &request).await
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "error": {
+                        "message": format!("No available credentials for provider '{}'", provider),
+                        "type": "provider_unavailable",
+                        "code": "no_credentials"
+                    }
+                })),
+            )
+                .into_response()
         }
     }
 }
@@ -1605,17 +1623,15 @@ async fn amp_messages(
         ),
     );
 
-    // 尝试根据 provider 名称选择凭证（带智能降级）
+    // 尝试根据 provider 名称选择凭证（不降级，指定什么就用什么）
     let credential = match &state.db {
         Some(db) => {
-            // 首先尝试按 provider 类型选择（带智能降级）
-            if let Ok(Some(cred)) = state.pool_service.select_credential_with_fallback(
-                db,
-                &state.api_key_service,
-                &provider,
-                Some(&request.model),
-                Some(&provider), // provider_id_hint 使用路由中的 provider 名称
-            ) {
+            // 使用 select_credential 而不是 select_credential_with_fallback，禁止降级
+            if let Ok(Some(cred)) =
+                state
+                    .pool_service
+                    .select_credential(db, &provider, Some(&request.model))
+            {
                 Some(cred)
             }
             // 然后尝试按名称查找
@@ -1647,14 +1663,24 @@ async fn amp_messages(
             handlers::call_provider_anthropic(&state, &cred, &request, None).await
         }
         None => {
+            // 不再回退到默认 provider，直接返回错误
             state.logs.write().await.add(
-                "warn",
+                "error",
                 &format!(
-                    "[AMP] Credential not found for provider '{}', falling back to default",
+                    "[AMP] No available credentials for provider '{}', refusing to fallback",
                     provider
                 ),
             );
-            anthropic_messages_internal(&state, &request).await
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "error": {
+                        "type": "provider_unavailable",
+                        "message": format!("No available credentials for provider '{}'", provider)
+                    }
+                })),
+            )
+                .into_response()
         }
     }
 }

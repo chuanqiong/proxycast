@@ -117,6 +117,7 @@ pub struct AppStates {
     pub resilience_config: ResilienceConfigState,
     pub plugin_manager: PluginManagerState,
     pub plugin_installer: PluginInstallerState,
+    pub plugin_rpc_manager: crate::commands::plugin_rpc_cmd::PluginRpcManagerState,
     pub telemetry: crate::commands::telemetry_cmd::TelemetryState,
     pub flow_monitor: FlowMonitorState,
     pub flow_query_service: FlowQueryServiceState,
@@ -180,6 +181,9 @@ pub fn init_states(config: &Config) -> Result<AppStates, String> {
     // 插件安装器
     let plugin_installer_state = init_plugin_installer()?;
 
+    // 插件 RPC 管理器
+    let plugin_rpc_manager_state = crate::commands::plugin_rpc_cmd::PluginRpcManagerState::new();
+
     // 遥测系统
     let (telemetry_state, shared_stats, shared_tokens, shared_logger) = init_telemetry(config)?;
 
@@ -235,6 +239,7 @@ pub fn init_states(config: &Config) -> Result<AppStates, String> {
         resilience_config: resilience_config_state,
         plugin_manager: plugin_manager_state,
         plugin_installer: plugin_installer_state,
+        plugin_rpc_manager: plugin_rpc_manager_state,
         telemetry: telemetry_state,
         flow_monitor: flow_monitor_state,
         flow_query_service: flow_query_service_state,

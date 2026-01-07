@@ -190,8 +190,8 @@ impl RequestProcessor {
     /// * `model` - 模型名称（应该是解析后的实际模型名）
     ///
     /// # Returns
-    /// 选择的 Provider 类型和是否使用默认 Provider
-    pub async fn route_model(&self, model: &str) -> (crate::ProviderType, bool) {
+    /// 选择的 Provider 类型（如果设置了）和是否使用默认 Provider
+    pub async fn route_model(&self, model: &str) -> (Option<crate::ProviderType>, bool) {
         let router = self.router.read().await;
         let result = router.route(model);
         (result.provider, result.is_default)
@@ -203,18 +203,26 @@ impl RequestProcessor {
     /// * `ctx` - 请求上下文
     ///
     /// # Returns
-    /// 选择的 Provider 类型
-    pub async fn route_for_context(&self, ctx: &mut RequestContext) -> crate::ProviderType {
+    /// 选择的 Provider 类型，如果未设置默认 Provider 则返回 None
+    pub async fn route_for_context(&self, ctx: &mut RequestContext) -> Option<crate::ProviderType> {
         let (provider, is_default) = self.route_model(&ctx.resolved_model).await;
-        ctx.set_provider(provider);
 
-        tracing::info!(
-            "[ROUTE] request_id={} model={} provider={} is_default={}",
-            ctx.request_id,
-            ctx.resolved_model,
-            provider,
-            is_default
-        );
+        if let Some(p) = provider {
+            ctx.set_provider(p);
+            tracing::info!(
+                "[ROUTE] request_id={} model={} provider={} is_default={}",
+                ctx.request_id,
+                ctx.resolved_model,
+                p,
+                is_default
+            );
+        } else {
+            tracing::warn!(
+                "[ROUTE] request_id={} model={} 未设置默认 Provider",
+                ctx.request_id,
+                ctx.resolved_model
+            );
+        }
 
         provider
     }
@@ -227,8 +235,8 @@ impl RequestProcessor {
     /// * `ctx` - 请求上下文
     ///
     /// # Returns
-    /// 选择的 Provider 类型
-    pub async fn resolve_and_route(&self, ctx: &mut RequestContext) -> crate::ProviderType {
+    /// 选择的 Provider 类型，如果未设置默认 Provider 则返回 None
+    pub async fn resolve_and_route(&self, ctx: &mut RequestContext) -> Option<crate::ProviderType> {
         // 1. 解析模型别名
         self.resolve_model_for_context(ctx).await;
 

@@ -26,17 +26,6 @@ pub async fn get_model_registry(
     Ok(service.get_all_models().await)
 }
 
-/// 刷新模型注册表（从 models.dev 获取最新数据）
-#[tauri::command]
-pub async fn refresh_model_registry(state: State<'_, ModelRegistryState>) -> Result<(), String> {
-    let guard = state.read().await;
-    let service = guard
-        .as_ref()
-        .ok_or_else(|| "模型注册服务未初始化".to_string())?;
-
-    service.refresh_from_repo().await
-}
-
 /// 搜索模型
 #[tauri::command]
 pub async fn search_models(

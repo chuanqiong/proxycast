@@ -35,6 +35,7 @@ export type {
   StorageApi,
   CredentialApi,
   PluginConfigApi,
+  RpcApi,
 
   // 数据类型
   QueryResult,
@@ -44,6 +45,7 @@ export type {
   EventCallback,
   Unsubscribe,
   CredentialInfo,
+  RpcNotificationCallback,
 
   // 主 SDK 类型
   ProxyCastPluginSDK,
@@ -61,6 +63,7 @@ export {
   clearSDKCache,
   subscribeNotifications,
   getGlobalEventBus,
+  handleRpcNotification,
 } from "./sdk";
 
 // Hook 导出

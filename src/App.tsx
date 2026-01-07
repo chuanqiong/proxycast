@@ -65,6 +65,17 @@ const PageWrapper = styled.div`
   overflow: auto;
 `;
 
+/**
+ * 全屏页面容器（无 padding）
+ * 用于终端等需要全屏显示的插件
+ */
+const FullscreenWrapper = styled.div`
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+`;
+
 function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [currentPage, setCurrentPage] = useState<Page>("agent");
@@ -130,6 +141,19 @@ function App() {
     // 检查是否为动态插件页面 (plugin:xxx 格式)
     if (currentPage.startsWith("plugin:")) {
       const pluginId = currentPage.slice(7); // 移除 "plugin:" 前缀
+
+      // 需要全屏显示的插件列表
+      const fullscreenPlugins = ["terminal-plugin"];
+      const isFullscreen = fullscreenPlugins.includes(pluginId);
+
+      if (isFullscreen) {
+        return (
+          <FullscreenWrapper>
+            <PluginUIRenderer pluginId={pluginId} onNavigate={setCurrentPage} />
+          </FullscreenWrapper>
+        );
+      }
+
       return (
         <PageWrapper>
           <PluginUIRenderer pluginId={pluginId} onNavigate={setCurrentPage} />

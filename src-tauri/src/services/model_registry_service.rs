@@ -1,6 +1,7 @@
 //! 模型注册服务
 //!
-//! 负责从 aiclientproxy/models 仓库获取模型数据、管理本地缓存、提供模型搜索等功能
+//! 从内嵌资源加载模型数据，管理本地缓存，提供模型搜索等功能
+//! 模型数据在构建时从 aiclientproxy/models 仓库打包进应用
 
 use crate::database::DbConnection;
 use crate::models::model_registry::{
@@ -13,9 +14,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-/// GitHub 仓库 raw 文件基础 URL
-const MODELS_REPO_BASE_URL: &str = "https://raw.githubusercontent.com/aiclientproxy/models/main";
-const CACHE_DURATION_SECS: i64 = 3600; // 1 小时
+/// 内嵌的模型资源目录名
+const MODELS_RESOURCE_DIR: &str = "models";
 
 /// 仓库索引文件结构
 #[derive(Debug, Deserialize)]
@@ -96,6 +96,8 @@ pub struct ModelRegistryService {
     aliases_cache: Arc<RwLock<HashMap<String, ProviderAliasConfig>>>,
     /// 同步状态
     sync_state: Arc<RwLock<ModelSyncState>>,
+    /// 资源目录路径
+    resource_dir: Option<std::path::PathBuf>,
 }
 
 impl ModelRegistryService {
@@ -106,254 +108,141 @@ impl ModelRegistryService {
             models_cache: Arc::new(RwLock::new(Vec::new())),
             aliases_cache: Arc::new(RwLock::new(HashMap::new())),
             sync_state: Arc::new(RwLock::new(ModelSyncState::default())),
+            resource_dir: None,
         }
     }
 
-    /// 初始化服务
+    /// 设置资源目录路径
+    pub fn set_resource_dir(&mut self, path: std::path::PathBuf) {
+        self.resource_dir = Some(path);
+    }
+
+    /// 初始化服务 - 从内嵌资源加载模型数据
     pub async fn initialize(&self) -> Result<(), String> {
         tracing::info!("[ModelRegistry] 初始化模型注册服务");
 
-        // 1. 尝试从数据库加载缓存
+        // 1. 首先尝试从内嵌资源加载
+        match self.load_from_embedded_resources().await {
+            Ok((models, aliases)) => {
+                tracing::info!(
+                    "[ModelRegistry] 从内嵌资源加载了 {} 个模型, {} 个别名配置",
+                    models.len(),
+                    aliases.len()
+                );
+
+                // 更新缓存
+                {
+                    let mut cache = self.models_cache.write().await;
+                    *cache = models.clone();
+                }
+                {
+                    let mut cache = self.aliases_cache.write().await;
+                    *cache = aliases;
+                }
+
+                // 更新同步状态
+                {
+                    let mut state = self.sync_state.write().await;
+                    state.model_count = models.len() as u32;
+                    state.last_sync_at = Some(chrono::Utc::now().timestamp());
+                    state.is_syncing = false;
+                    state.last_error = None;
+                }
+
+                // 保存到数据库
+                if let Err(e) = self.save_models_to_db(&models).await {
+                    tracing::warn!("[ModelRegistry] 保存模型到数据库失败: {}", e);
+                }
+
+                return Ok(());
+            }
+            Err(e) => {
+                tracing::warn!("[ModelRegistry] 从内嵌资源加载失败: {}", e);
+            }
+        }
+
+        // 2. 回退到从数据库加载
         match self.load_from_db().await {
             Ok(models) if !models.is_empty() => {
                 tracing::info!("[ModelRegistry] 从数据库加载了 {} 个模型", models.len());
                 let mut cache = self.models_cache.write().await;
                 *cache = models;
-
-                // 检查是否需要后台刷新
-                if self.should_refresh().await {
-                    tracing::info!("[ModelRegistry] 缓存已过期，启动后台刷新");
-                    self.spawn_background_refresh();
-                }
-                return Ok(());
             }
             Ok(_) => {
-                tracing::info!("[ModelRegistry] 数据库中没有缓存数据");
+                tracing::warn!("[ModelRegistry] 数据库中没有模型数据");
             }
             Err(e) => {
-                tracing::warn!("[ModelRegistry] 从数据库加载失败: {}", e);
+                tracing::error!("[ModelRegistry] 从数据库加载失败: {}", e);
             }
         }
-
-        // 2. 后台获取 models 仓库数据
-        self.spawn_background_refresh();
 
         Ok(())
     }
 
-    /// 检查是否需要刷新
-    async fn should_refresh(&self) -> bool {
-        let state = self.sync_state.read().await;
-        match state.last_sync_at {
-            Some(last_sync) => {
-                let now = chrono::Utc::now().timestamp();
-                now - last_sync > CACHE_DURATION_SECS
-            }
-            None => true,
-        }
-    }
-
-    /// 启动后台刷新任务
-    fn spawn_background_refresh(&self) {
-        let db = self.db.clone();
-        let models_cache = self.models_cache.clone();
-        let aliases_cache = self.aliases_cache.clone();
-        let sync_state = self.sync_state.clone();
-
-        tokio::spawn(async move {
-            let service = ModelRegistryService {
-                db,
-                models_cache,
-                aliases_cache,
-                sync_state,
-            };
-            if let Err(e) = service.refresh_from_repo().await {
-                tracing::error!("[ModelRegistry] 后台刷新失败: {}", e);
-            }
-        });
-    }
-
-    /// 从 aiclientproxy/models 仓库刷新数据
-    pub async fn refresh_from_repo(&self) -> Result<(), String> {
-        tracing::info!("[ModelRegistry] 开始从 models 仓库获取数据");
-
-        // 设置同步状态
-        {
-            let mut state = self.sync_state.write().await;
-            state.is_syncing = true;
-            state.last_error = None;
-        }
-
-        // 获取模型数据
-        let models_result = self.fetch_models_from_repo().await;
-
-        // 获取别名数据
-        let aliases_result = self.fetch_aliases_from_repo().await;
-
-        match models_result {
-            Ok(models) => {
-                tracing::info!("[ModelRegistry] 获取了 {} 个模型", models.len());
-
-                // 更新模型缓存
-                {
-                    let mut cache = self.models_cache.write().await;
-                    *cache = models.clone();
-                }
-
-                // 更新别名缓存
-                if let Ok(aliases) = aliases_result {
-                    tracing::info!(
-                        "[ModelRegistry] 获取了 {} 个 Provider 别名配置",
-                        aliases.len()
-                    );
-                    let mut cache = self.aliases_cache.write().await;
-                    *cache = aliases;
-                }
-
-                // 保存到数据库
-                self.save_models_to_db(&models).await?;
-
-                // 更新同步状态
-                {
-                    let mut state = self.sync_state.write().await;
-                    state.is_syncing = false;
-                    state.last_sync_at = Some(chrono::Utc::now().timestamp());
-                    state.model_count = models.len() as u32;
-                    state.last_error = None;
-                }
-
-                // 保存同步状态到数据库
-                self.save_sync_state().await?;
-
-                Ok(())
-            }
-            Err(e) => {
-                tracing::error!("[ModelRegistry] 从 models 仓库获取数据失败: {}", e);
-
-                // 更新同步状态
-                {
-                    let mut state = self.sync_state.write().await;
-                    state.is_syncing = false;
-                    state.last_error = Some(e.clone());
-                }
-
-                Err(e)
-            }
-        }
-    }
-
-    /// 从 models 仓库获取别名配置
-    async fn fetch_aliases_from_repo(
+    /// 从内嵌资源加载模型数据
+    async fn load_from_embedded_resources(
         &self,
-    ) -> Result<HashMap<String, ProviderAliasConfig>, String> {
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .build()
-            .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
+    ) -> Result<
+        (
+            Vec<EnhancedModelMetadata>,
+            HashMap<String, ProviderAliasConfig>,
+        ),
+        String,
+    > {
+        let resource_dir = self
+            .resource_dir
+            .as_ref()
+            .ok_or_else(|| "资源目录未设置".to_string())?;
 
-        let mut aliases = HashMap::new();
+        let models_dir = resource_dir.join(MODELS_RESOURCE_DIR);
+        let index_file = models_dir.join("index.json");
 
-        // 已知的别名文件列表
-        let alias_files = ["kiro", "antigravity"];
-
-        for alias_name in alias_files {
-            let alias_url = format!("{}/aliases/{}.json", MODELS_REPO_BASE_URL, alias_name);
-
-            match client
-                .get(&alias_url)
-                .header("User-Agent", "ProxyCast/1.0")
-                .send()
-                .await
-            {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        match response.json::<ProviderAliasConfig>().await {
-                            Ok(config) => {
-                                tracing::info!(
-                                    "[ModelRegistry] 加载别名配置: {} ({} 个模型)",
-                                    config.provider,
-                                    config.models.len()
-                                );
-                                aliases.insert(config.provider.clone(), config);
-                            }
-                            Err(e) => {
-                                tracing::warn!(
-                                    "[ModelRegistry] 解析别名配置 {} 失败: {}",
-                                    alias_name,
-                                    e
-                                );
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!("[ModelRegistry] 获取别名配置 {} 失败: {}", alias_name, e);
-                }
-            }
+        if !index_file.exists() {
+            return Err(format!("索引文件不存在: {:?}", index_file));
         }
 
-        Ok(aliases)
-    }
-
-    /// 从 models 仓库获取数据
-    async fn fetch_models_from_repo(&self) -> Result<Vec<EnhancedModelMetadata>, String> {
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .build()
-            .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
-
-        // 1. 获取索引文件
-        let index_url = format!("{}/index.json", MODELS_REPO_BASE_URL);
-        let index: RepoIndex = client
-            .get(&index_url)
-            .header("User-Agent", "ProxyCast/1.0")
-            .send()
-            .await
-            .map_err(|e| format!("请求 index.json 失败: {}", e))?
-            .json()
-            .await
-            .map_err(|e| format!("解析 index.json 失败: {}", e))?;
+        // 1. 读取索引文件
+        let index_content =
+            std::fs::read_to_string(&index_file).map_err(|e| format!("读取索引文件失败: {}", e))?;
+        let index: RepoIndex =
+            serde_json::from_str(&index_content).map_err(|e| format!("解析索引文件失败: {}", e))?;
 
         tracing::info!(
             "[ModelRegistry] 索引包含 {} 个 providers",
             index.providers.len()
         );
 
-        // 2. 并发获取所有 provider 数据
+        // 2. 加载所有 provider 数据
         let mut models = Vec::new();
         let now = chrono::Utc::now().timestamp();
+        let providers_dir = models_dir.join("providers");
 
         for provider_id in &index.providers {
-            let provider_url = format!("{}/providers/{}.json", MODELS_REPO_BASE_URL, provider_id);
+            let provider_file = providers_dir.join(format!("{}.json", provider_id));
+            if !provider_file.exists() {
+                tracing::warn!("[ModelRegistry] Provider 文件不存在: {:?}", provider_file);
+                continue;
+            }
 
-            match client
-                .get(&provider_url)
-                .header("User-Agent", "ProxyCast/1.0")
-                .send()
-                .await
-            {
-                Ok(response) => {
-                    if response.status().is_success() {
-                        match response.json::<RepoProviderData>().await {
-                            Ok(provider_data) => {
-                                for model in provider_data.models {
-                                    let enhanced = self.convert_repo_model(
-                                        model,
-                                        &provider_data.provider.id,
-                                        &provider_data.provider.name,
-                                        now,
-                                    );
-                                    models.push(enhanced);
-                                }
-                            }
-                            Err(e) => {
-                                tracing::warn!("[ModelRegistry] 解析 {} 失败: {}", provider_id, e);
-                            }
+            match std::fs::read_to_string(&provider_file) {
+                Ok(content) => match serde_json::from_str::<RepoProviderData>(&content) {
+                    Ok(provider_data) => {
+                        for model in provider_data.models {
+                            let enhanced = self.convert_repo_model(
+                                model,
+                                &provider_data.provider.id,
+                                &provider_data.provider.name,
+                                now,
+                            );
+                            models.push(enhanced);
                         }
                     }
-                }
+                    Err(e) => {
+                        tracing::warn!("[ModelRegistry] 解析 {} 失败: {}", provider_id, e);
+                    }
+                },
                 Err(e) => {
-                    tracing::warn!("[ModelRegistry] 获取 {} 失败: {}", provider_id, e);
+                    tracing::warn!("[ModelRegistry] 读取 {} 失败: {}", provider_id, e);
                 }
             }
         }
@@ -377,12 +266,40 @@ impl ModelRegistryService {
                 .then(a.display_name.cmp(&b.display_name))
         });
 
-        tracing::info!(
-            "[ModelRegistry] 从 models 仓库获取了 {} 个模型",
-            models.len()
-        );
+        // 3. 加载别名配置
+        let mut aliases = HashMap::new();
+        let aliases_dir = models_dir.join("aliases");
+        let alias_files = ["kiro", "antigravity"];
 
-        Ok(models)
+        for alias_name in alias_files {
+            let alias_file = aliases_dir.join(format!("{}.json", alias_name));
+            if !alias_file.exists() {
+                continue;
+            }
+
+            match std::fs::read_to_string(&alias_file) {
+                Ok(content) => match serde_json::from_str::<ProviderAliasConfig>(&content) {
+                    Ok(config) => {
+                        tracing::info!(
+                            "[ModelRegistry] 加载别名配置: {} ({} 个模型)",
+                            config.provider,
+                            config.models.len()
+                        );
+                        aliases.insert(config.provider.clone(), config);
+                    }
+                    Err(e) => {
+                        tracing::warn!("[ModelRegistry] 解析别名配置 {} 失败: {}", alias_name, e);
+                    }
+                },
+                Err(e) => {
+                    tracing::warn!("[ModelRegistry] 读取别名配置 {} 失败: {}", alias_name, e);
+                }
+            }
+        }
+
+        tracing::info!("[ModelRegistry] 从内嵌资源加载了 {} 个模型", models.len());
+
+        Ok((models, aliases))
     }
 
     /// 转换仓库模型格式为内部格式
@@ -433,7 +350,7 @@ impl ModelRegistryService {
             release_date: model.release_date,
             is_latest: model.is_latest.unwrap_or(false),
             description: model.description_zh.or(model.description),
-            source: ModelSource::ModelsDev,
+            source: ModelSource::Embedded,
             created_at: now,
             updated_at: now,
         }
@@ -579,43 +496,6 @@ impl ModelRegistryService {
         tx.commit().map_err(|e| e.to_string())?;
 
         tracing::info!("[ModelRegistry] 保存了 {} 个模型到数据库", models.len());
-
-        Ok(())
-    }
-
-    /// 保存同步状态
-    async fn save_sync_state(&self) -> Result<(), String> {
-        let (last_sync_at, model_count, last_error) = {
-            let state = self.sync_state.read().await;
-            (
-                state.last_sync_at,
-                state.model_count,
-                state.last_error.clone(),
-            )
-        };
-
-        let conn = self.db.lock().map_err(|e| e.to_string())?;
-        let now = chrono::Utc::now().timestamp();
-
-        let mut stmt = conn
-            .prepare(
-                "INSERT OR REPLACE INTO model_sync_state (key, value, updated_at)
-                 VALUES (?, ?, ?)",
-            )
-            .map_err(|e| e.to_string())?;
-
-        if let Some(last_sync) = last_sync_at {
-            stmt.execute(params!["last_sync_at", last_sync.to_string(), now])
-                .map_err(|e| e.to_string())?;
-        }
-
-        stmt.execute(params!["model_count", model_count.to_string(), now])
-            .map_err(|e| e.to_string())?;
-
-        if let Some(ref error) = last_error {
-            stmt.execute(params!["last_error", error, now])
-                .map_err(|e| e.to_string())?;
-        }
 
         Ok(())
     }

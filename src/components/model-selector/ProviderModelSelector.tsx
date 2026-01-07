@@ -55,7 +55,7 @@ interface ConfiguredProvider {
 /** OAuth 凭证类型到 Provider ID 的映射 */
 const CREDENTIAL_TYPE_TO_PROVIDER_ID: Record<string, string> = {
   kiro: "kiro",
-  gemini: "google",
+  gemini: "gemini_oauth",
   qwen: "alibaba",
   antigravity: "antigravity",
   codex: "openai",
@@ -63,7 +63,7 @@ const CREDENTIAL_TYPE_TO_PROVIDER_ID: Record<string, string> = {
   iflow: "iflow",
   openai: "openai",
   claude: "anthropic",
-  gemini_api_key: "google",
+  gemini_api_key: "gemini_api_key",
 };
 
 /** API Key Provider 类型到 Registry ID 的映射 */
@@ -85,6 +85,8 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   anthropic: "Anthropic",
   openai: "OpenAI",
   google: "Google",
+  gemini_oauth: "Gemini OAuth",
+  gemini_api_key: "Gemini API Key",
   alibaba: "阿里云",
   ollama: "Ollama",
   custom: "自定义",
@@ -95,6 +97,12 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 
 /** 别名 Provider 列表（使用别名配置而非标准模型注册表） */
 const ALIAS_PROVIDERS = ["antigravity", "kiro"];
+
+/** Provider ID 到模型注册表 Provider ID 的映射（用于过滤模型） */
+const PROVIDER_TO_REGISTRY_MAPPING: Record<string, string> = {
+  gemini_oauth: "google",
+  gemini_api_key: "google",
+};
 
 // ============================================================================
 // 子组件
@@ -378,7 +386,10 @@ export const ProviderModelSelector: React.FC<ProviderModelSelectorProps> = ({
     }
 
     // 对于标准 Provider，从模型注册表过滤
-    return models.filter((m) => m.provider_id === selectedProviderId);
+    // 使用映射表将 UI Provider ID 转换为模型注册表 Provider ID
+    const registryProviderId =
+      PROVIDER_TO_REGISTRY_MAPPING[selectedProviderId] || selectedProviderId;
+    return models.filter((m) => m.provider_id === registryProviderId);
   }, [models, selectedProviderId, aliasConfig]);
 
   // 选择 Provider

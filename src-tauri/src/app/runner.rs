@@ -56,6 +56,7 @@ pub fn run() {
         resilience_config: resilience_config_state,
         plugin_manager: plugin_manager_state,
         plugin_installer: plugin_installer_state,
+        plugin_rpc_manager: plugin_rpc_manager_state,
         telemetry: telemetry_state,
         flow_monitor: flow_monitor_state,
         flow_query_service: flow_query_service_state,
@@ -132,6 +133,7 @@ pub fn run() {
         .manage(telemetry_state)
         .manage(plugin_manager_state)
         .manage(plugin_installer_state)
+        .manage(plugin_rpc_manager_state)
         .manage(flow_monitor_state)
         .manage(flow_query_service_state)
         .manage(flow_interceptor_state)
@@ -233,9 +235,13 @@ pub fn run() {
             {
                 let app_handle = app.handle().clone();
                 let db_clone = db_clone.clone();
+                // 获取资源目录路径
+                let resource_dir = app.path().resource_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
                 tauri::async_runtime::spawn(async move {
                     // 创建 ModelRegistryService
-                    let service = crate::services::model_registry_service::ModelRegistryService::new(db_clone);
+                    let mut service = crate::services::model_registry_service::ModelRegistryService::new(db_clone);
+                    // 设置资源目录路径
+                    service.set_resource_dir(resource_dir);
 
                     // 初始化服务
                     match service.initialize().await {
@@ -748,6 +754,10 @@ pub fn run() {
             commands::plugin_install_cmd::is_plugin_installed,
             // Plugin UI commands
             commands::plugin_cmd::get_plugins_with_ui,
+            // Plugin RPC commands
+            commands::plugin_rpc_cmd::plugin_rpc_connect,
+            commands::plugin_rpc_cmd::plugin_rpc_disconnect,
+            commands::plugin_rpc_cmd::plugin_rpc_call,
             // Flow Monitor commands
             commands::flow_monitor_cmd::query_flows,
             commands::flow_monitor_cmd::get_flow_detail,
@@ -1008,7 +1018,7 @@ pub fn run() {
             commands::connect_cmd::send_connect_callback,
             // Model Registry commands
             commands::model_registry_cmd::get_model_registry,
-            commands::model_registry_cmd::refresh_model_registry,
+            // commands::model_registry_cmd::refresh_model_registry, // TODO: 暂时禁用
             commands::model_registry_cmd::search_models,
             commands::model_registry_cmd::get_model_preferences,
             commands::model_registry_cmd::toggle_model_favorite,
