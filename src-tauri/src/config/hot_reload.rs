@@ -375,6 +375,8 @@ impl HotReloadManager {
     /// 验证配置
     fn validate_config(&self, config: &Config) -> Result<(), HotReloadError> {
         let is_localhost = is_localhost_host(&config.server.host);
+        let is_valid_host = is_valid_bind_host(&config.server.host);
+        let is_non_local = is_non_local_bind(&config.server.host);
 
         // 验证端口范围
         if config.server.port == 0 {
@@ -383,9 +385,10 @@ impl HotReloadManager {
             ));
         }
 
-        if !is_localhost {
+        // 验证绑定地址
+        if !is_valid_host {
             return Err(HotReloadError::ValidationError(
-                "当前版本仅支持本地监听，请使用 127.0.0.1/localhost/::1".to_string(),
+                "无效的监听地址。允许的地址：127.0.0.1、localhost、::1、0.0.0.0、::".to_string(),
             ));
         }
 
@@ -415,11 +418,12 @@ impl HotReloadManager {
             ));
         }
 
-        if (!is_localhost || config.remote_management.allow_remote)
+        // 非本地绑定或远程管理时，禁止使用默认 API Key
+        if (is_non_local || !is_localhost || config.remote_management.allow_remote)
             && is_default_api_key(&config.server.api_key)
         {
             return Err(HotReloadError::ValidationError(
-                "非本地访问场景下禁止使用默认 API Key，请设置强口令".to_string(),
+                "监听所有网络接口或开启远程管理时，禁止使用默认 API Key，请设置强口令".to_string(),
             ));
         }
 
@@ -482,6 +486,21 @@ fn is_localhost_host(host: &str) -> bool {
     host.parse::<std::net::IpAddr>()
         .map(|addr| addr.is_loopback())
         .unwrap_or(false)
+}
+
+/// 检查是否为有效的绑定地址
+/// 允许回环地址和 0.0.0.0（监听所有接口）
+fn is_valid_bind_host(host: &str) -> bool {
+    if is_localhost_host(host) {
+        return true;
+    }
+    // 允许 0.0.0.0 和 :: （监听所有接口）
+    host == "0.0.0.0" || host == "::"
+}
+
+/// 检查是否为非本地绑定地址（需要强 API Key）
+fn is_non_local_bind(host: &str) -> bool {
+    host == "0.0.0.0" || host == "::"
 }
 
 /// 热重载状态

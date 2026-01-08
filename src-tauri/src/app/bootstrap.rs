@@ -40,7 +40,7 @@ use crate::services::token_cache_service::TokenCacheService;
 use crate::telemetry;
 
 use super::types::{AppState, LogState, TokenCacheServiceState};
-use super::utils::{generate_api_key, is_loopback_host};
+use super::utils::{generate_api_key, is_non_local_bind, is_valid_bind_host};
 
 /// 配置验证错误
 #[derive(Debug)]
@@ -48,7 +48,7 @@ pub enum ConfigError {
     LoadFailed(String),
     SaveFailed(String),
     InvalidHost,
-    DefaultApiKey,
+    DefaultApiKeyWithNonLocalBind,
     TlsNotSupported,
     RemoteManagementNotSupported,
 }
@@ -59,9 +59,15 @@ impl std::fmt::Display for ConfigError {
             ConfigError::LoadFailed(e) => write!(f, "配置加载失败: {}", e),
             ConfigError::SaveFailed(e) => write!(f, "配置保存失败: {}", e),
             ConfigError::InvalidHost => {
-                write!(f, "当前版本仅支持本地监听，请使用 127.0.0.1/localhost/::1")
+                write!(
+                    f,
+                    "无效的监听地址。允许的地址：127.0.0.1、localhost、::1、0.0.0.0、::"
+                )
             }
-            ConfigError::DefaultApiKey => write!(f, "检测到使用默认 API key，请配置强密钥"),
+            ConfigError::DefaultApiKeyWithNonLocalBind => write!(
+                f,
+                "监听所有网络接口 (0.0.0.0 或 ::) 时，必须设置非默认的 API Key"
+            ),
             ConfigError::TlsNotSupported => write!(f, "当前版本尚未支持 TLS"),
             ConfigError::RemoteManagementNotSupported => {
                 write!(f, "远程管理需要 TLS 支持，当前版本未启用")
@@ -74,22 +80,24 @@ impl std::fmt::Display for ConfigError {
 pub fn load_and_validate_config() -> Result<Config, ConfigError> {
     let mut config = config::load_config().map_err(|e| ConfigError::LoadFailed(e.to_string()))?;
 
-    // 自动生成 API key（如果使用默认值）
-    if config.server.api_key == config::DEFAULT_API_KEY {
+    // 验证主机地址
+    if !is_valid_bind_host(&config.server.host) {
+        return Err(ConfigError::InvalidHost);
+    }
+
+    let is_non_local = is_non_local_bind(&config.server.host);
+
+    // 如果是本地绑定且使用默认 API key，自动生成新密钥
+    if !is_non_local && config.server.api_key == config::DEFAULT_API_KEY {
         let new_key = generate_api_key();
         config.server.api_key = new_key;
         config::save_config(&config).map_err(|e| ConfigError::SaveFailed(e.to_string()))?;
         tracing::info!("检测到默认 API key，已自动生成并保存新密钥");
     }
 
-    // 验证主机地址
-    if !is_loopback_host(&config.server.host) {
-        return Err(ConfigError::InvalidHost);
-    }
-
-    // 再次检查 API key（防止保存失败后继续）
-    if config.server.api_key == config::DEFAULT_API_KEY {
-        return Err(ConfigError::DefaultApiKey);
+    // 如果是非本地绑定，必须使用非默认 API key
+    if is_non_local && config.server.api_key == config::DEFAULT_API_KEY {
+        return Err(ConfigError::DefaultApiKeyWithNonLocalBind);
     }
 
     // 检查 TLS 配置

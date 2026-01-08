@@ -20,6 +20,21 @@ pub fn is_loopback_host(host: &str) -> bool {
     }
 }
 
+/// 检查是否为有效的绑定地址
+/// 允许回环地址和 0.0.0.0（监听所有接口）
+pub fn is_valid_bind_host(host: &str) -> bool {
+    if is_loopback_host(host) {
+        return true;
+    }
+    // 允许 0.0.0.0 和 :: （监听所有接口）
+    host == "0.0.0.0" || host == "::"
+}
+
+/// 检查是否为非本地绑定地址（需要强 API Key）
+pub fn is_non_local_bind(host: &str) -> bool {
+    host == "0.0.0.0" || host == "::"
+}
+
 /// 掩码敏感 Token
 pub fn mask_token(token: &str) -> String {
     let chars: Vec<char> = token.chars().collect();
@@ -43,6 +58,28 @@ mod tests {
         assert!(is_loopback_host("::1"));
         assert!(!is_loopback_host("0.0.0.0"));
         assert!(!is_loopback_host("192.168.1.1"));
+    }
+
+    #[test]
+    fn test_is_valid_bind_host() {
+        // 回环地址
+        assert!(is_valid_bind_host("localhost"));
+        assert!(is_valid_bind_host("127.0.0.1"));
+        assert!(is_valid_bind_host("::1"));
+        // 监听所有接口
+        assert!(is_valid_bind_host("0.0.0.0"));
+        assert!(is_valid_bind_host("::"));
+        // 其他地址不允许
+        assert!(!is_valid_bind_host("192.168.1.1"));
+        assert!(!is_valid_bind_host("10.0.0.1"));
+    }
+
+    #[test]
+    fn test_is_non_local_bind() {
+        assert!(is_non_local_bind("0.0.0.0"));
+        assert!(is_non_local_bind("::"));
+        assert!(!is_non_local_bind("127.0.0.1"));
+        assert!(!is_non_local_bind("localhost"));
     }
 
     #[test]

@@ -3,10 +3,11 @@
 //! 包含配置读取、保存、Provider 设置等命令。
 
 use crate::app::types::{AppState, LogState};
+use crate::app::utils::{is_non_local_bind, is_valid_bind_host};
 use crate::config::{
     self,
     observer::{ConfigChangeEvent, RoutingChangeEvent},
-    ConfigChangeSource, GlobalConfigManagerState,
+    ConfigChangeSource, GlobalConfigManagerState, DEFAULT_API_KEY,
 };
 
 /// 获取配置
@@ -22,12 +23,19 @@ pub async fn save_config(
     state: tauri::State<'_, AppState>,
     config: config::Config,
 ) -> Result<(), String> {
-    // P0 安全修复：禁止危险的网络配置
     let host = config.server.host.to_lowercase();
-    if host == "0.0.0.0" || host == "::" {
+
+    // 验证绑定地址
+    if !is_valid_bind_host(&host) {
         return Err(
-            "安全限制：不允许监听所有网络接口 (0.0.0.0 或 ::)。请使用 127.0.0.1 或 localhost"
-                .to_string(),
+            "无效的监听地址。允许的地址：127.0.0.1、localhost、::1、0.0.0.0、::".to_string(),
+        );
+    }
+
+    // 如果监听所有接口，要求使用强 API Key
+    if is_non_local_bind(&host) && config.server.api_key == DEFAULT_API_KEY {
+        return Err(
+            "安全限制：监听所有网络接口 (0.0.0.0 或 ::) 时，必须设置非默认的 API Key".to_string(),
         );
     }
 
