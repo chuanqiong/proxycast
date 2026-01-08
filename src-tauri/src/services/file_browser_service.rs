@@ -11,6 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::fs::{self, Metadata};
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
@@ -93,6 +94,7 @@ fn is_hidden_file(name: &str) -> bool {
 }
 
 /// 将 Unix 文件模式转换为权限字符串（如 -rw-r--r--）
+#[cfg(unix)]
 fn mode_to_string(mode: u32, is_dir: bool, is_symlink: bool) -> String {
     let mut result = String::with_capacity(10);
 
@@ -371,9 +373,17 @@ pub fn list_directory(path: &str) -> DirectoryListing {
                         get_file_extension(&path)
                     };
 
-                    // 获取文件权限
-                    let mode = metadata.permissions().mode();
-                    let mode_str = mode_to_string(mode & 0o777, metadata.is_dir(), is_symlink);
+                    // 获取文件权限（仅 Unix）
+                    #[cfg(unix)]
+                    let (mode, mode_str) = {
+                        let m = metadata.permissions().mode();
+                        (
+                            Some(m & 0o777),
+                            Some(mode_to_string(m & 0o777, metadata.is_dir(), is_symlink)),
+                        )
+                    };
+                    #[cfg(not(unix))]
+                    let (mode, mode_str): (Option<u32>, Option<String>) = (None, None);
 
                     // 获取 MIME 类型
                     let mime_type = get_mime_type(&path, &metadata);
@@ -386,8 +396,8 @@ pub fn list_directory(path: &str) -> DirectoryListing {
                         modified_at,
                         file_type,
                         is_hidden: is_hidden_file(&name),
-                        mode_str: Some(mode_str),
-                        mode: Some(mode & 0o777),
+                        mode_str,
+                        mode,
                         mime_type: Some(mime_type),
                         is_symlink,
                     })

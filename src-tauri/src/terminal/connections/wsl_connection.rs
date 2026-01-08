@@ -18,6 +18,11 @@
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::Arc;
 
+#[cfg(target_os = "windows")]
+use std::io::{Read, Write};
+#[cfg(target_os = "windows")]
+use std::sync::Mutex;
+
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
@@ -26,7 +31,16 @@ use crate::terminal::block_controller::{BlockInputUnion, BlockMeta};
 use crate::terminal::connections::{ConnStatus, ConnectionState};
 use crate::terminal::error::TerminalError;
 use crate::terminal::events::event_names;
+#[cfg(target_os = "windows")]
+use crate::terminal::events::{TerminalOutputEvent, TerminalStatusEvent};
 use crate::terminal::persistence::BlockFile;
+#[cfg(target_os = "windows")]
+use crate::terminal::SessionStatus;
+
+#[cfg(target_os = "windows")]
+use base64::engine::general_purpose::STANDARD as BASE64;
+#[cfg(target_os = "windows")]
+use base64::Engine;
 
 /// WSL 连接前缀
 pub const WSL_CONN_PREFIX: &str = "wsl://";
