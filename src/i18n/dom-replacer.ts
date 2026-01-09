@@ -54,6 +54,17 @@ export function replaceTextInDOM(language: Language): void {
         ) {
           return NodeFilter.FILTER_REJECT;
         }
+
+        // 跳过输入框和文本域（避免影响用户输入）
+        if (tagName === "INPUT" || tagName === "TEXTAREA") {
+          return NodeFilter.FILTER_REJECT;
+        }
+
+        // 跳过可编辑元素
+        if (parent.isContentEditable) {
+          return NodeFilter.FILTER_REJECT;
+        }
+
         return NodeFilter.FILTER_ACCEPT;
       },
     },

@@ -83,9 +83,40 @@ export function I18nPatchProvider({
       window.__I18N_METRICS__.languageChanges++;
     }
 
-    // Set up MutationObserver for dynamic content
-    const observer = new MutationObserver(() => {
-      replaceTextInDOM(language);
+    // Set up MutationObserver for dynamic content with debouncing
+    let timeoutId: number | null = null;
+    const observer = new MutationObserver((mutations) => {
+      // 忽略输入框的变化（避免输入卡顿）
+      const shouldIgnore = mutations.every((mutation) => {
+        const target = mutation.target as HTMLElement;
+        // 忽略 input、textarea 内部的变化
+        if (
+          target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.closest("input, textarea")
+        ) {
+          return true;
+        }
+        // 忽略已经打过补丁的节点
+        if (
+          target instanceof Element &&
+          target.hasAttribute("data-i18n-patched")
+        ) {
+          return true;
+        }
+        return false;
+      });
+
+      if (shouldIgnore) return;
+
+      // 防抖：延迟 300ms 执行，避免频繁触发
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+      timeoutId = window.setTimeout(() => {
+        replaceTextInDOM(language);
+        timeoutId = null;
+      }, 300);
     });
 
     observer.observe(document.body, {
@@ -93,7 +124,12 @@ export function I18nPatchProvider({
       subtree: true,
     });
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [language]);
 
   return (

@@ -6,9 +6,23 @@
  * 参考 Waveterm 的 AIPanelInput 设计
  */
 
-import React, { useRef, useCallback, useEffect } from "react";
+import React, { useRef, useCallback, useEffect, useMemo } from "react";
 import { Send, Square, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/**
+ * 简单的防抖函数
+ */
+function debounce<T extends (...args: unknown[]) => void>(
+  fn: T,
+  delay: number,
+): T {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  return ((...args: unknown[]) => {
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  }) as T;
+}
 
 interface TerminalAIInputProps {
   /** 输入值 */
@@ -51,9 +65,17 @@ export const TerminalAIInput: React.FC<TerminalAIInputProps> = ({
     textarea.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
   }, []);
 
+  /**
+   * 防抖的 resize 函数
+   */
+  const debouncedResize = useMemo(
+    () => debounce(resizeTextarea, 16), // ~60fps
+    [resizeTextarea],
+  );
+
   useEffect(() => {
-    resizeTextarea();
-  }, [value, resizeTextarea]);
+    debouncedResize();
+  }, [value, debouncedResize]);
 
   /**
    * 处理键盘事件

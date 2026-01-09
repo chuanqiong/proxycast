@@ -25,6 +25,126 @@ import type { ProviderAliasConfig } from "@/lib/types/modelRegistry";
 // 常量
 // ============================================================================
 
+/**
+ * 从凭证类型提取支持的模型列表
+ * 对应后端 orchestrator_cmd.rs 中的 extract_supported_models 函数
+ */
+const extractSupportedModels = (
+  providerType: string,
+  credentialType: string,
+  providerId?: string, // 添加 providerId 参数用于特殊判断
+): string[] => {
+  const type = providerType.toLowerCase();
+  const credType = credentialType.toLowerCase();
+
+  // 特殊处理：DeepSeek（通过 providerId 判断）
+  if (providerId === "deepseek") {
+    return ["deepseek-chat", "deepseek-reasoner"];
+  }
+
+  // Claude 凭证
+  if (type === "claude" || type === "claude_oauth") {
+    return [
+      "claude-opus-4-5-20251101",
+      "claude-opus-4-20250514",
+      "claude-sonnet-4-5-20250929",
+      "claude-sonnet-4-20250514",
+      "claude-haiku-4-5-20251001",
+      "claude-3-7-sonnet-20250219",
+      "claude-3-5-haiku-20241022",
+    ];
+  }
+
+  // OpenAI 凭证
+  if (type === "openai") {
+    return [
+      "gpt-5.2-codex",
+      "gpt-5.2",
+      "gpt-5.1-codex-max",
+      "gpt-5.1-codex",
+      "gpt-5.1-codex-mini",
+      "gpt-5.1",
+      "gpt-5-codex",
+      "gpt-5-codex-mini",
+      "gpt-5",
+      "gpt-4o",
+      "gpt-4o-mini",
+    ];
+  }
+
+  // Gemini OAuth 凭证
+  if (type === "gemini" && credType.includes("oauth")) {
+    return [
+      "gemini-3-pro-preview",
+      "gemini-3-flash-preview",
+      "gemini-2.5-pro",
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+    ];
+  }
+
+  // Gemini API Key 凭证
+  if (
+    type === "gemini_api_key" ||
+    (type === "gemini" && credType.includes("key"))
+  ) {
+    return [
+      "gemini-3-pro-preview",
+      "gemini-3-flash-preview",
+      "gemini-2.5-pro",
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+    ];
+  }
+
+  // Kiro OAuth 凭证
+  if (type === "kiro") {
+    return [
+      "claude-opus-4-5",
+      "claude-opus-4-5-20251101",
+      "claude-haiku-4-5",
+      "claude-sonnet-4-5",
+      "claude-sonnet-4-5-20250929",
+      "claude-sonnet-4-20250514",
+      "claude-3-7-sonnet-20250219",
+    ];
+  }
+
+  // Codex OAuth 凭证
+  if (type === "codex") {
+    return ["codex-mini-latest"];
+  }
+
+  // Qwen OAuth 凭证
+  if (type === "qwen") {
+    return ["qwen3-coder-plus", "qwen3-coder-flash"];
+  }
+
+  // Antigravity OAuth 凭证
+  if (type === "antigravity") {
+    return [
+      // Max 等级
+      "gemini-3-pro-preview",
+      "gemini-3-pro-image-preview",
+      "gemini-claude-opus-4-5-thinking",
+      // Pro 等级
+      "gemini-2.5-flash",
+      "gemini-2.5-computer-use-preview-10-2025",
+      "gemini-claude-sonnet-4-5",
+      "gemini-claude-sonnet-4-5-thinking",
+      // Mini 等级
+      "gemini-3-flash-preview",
+    ];
+  }
+
+  // iFlow 凭证（DeepSeek 代理）
+  if (type === "iflow") {
+    return ["deepseek-chat", "deepseek-reasoner"];
+  }
+
+  return [];
+};
+
 /** Provider type 到 registry ID 的映射 */
 const getRegistryIdFromType = (providerType: string): string => {
   const typeMap: Record<string, string> = {
@@ -37,7 +157,7 @@ const getRegistryIdFromType = (providerType: string): string => {
     qwen: "alibaba",
     codex: "openai",
     antigravity: "antigravity",
-    iflow: "openai",
+    iflow: "iflowcn",
     gemini_api_key: "google",
   };
   return typeMap[providerType.toLowerCase()] || providerType.toLowerCase();
@@ -77,6 +197,8 @@ interface ConfiguredProvider {
   registryId: string;
   fallbackRegistryId?: string;
   type: string;
+  credentialType: string; // 添加凭证类型字段
+  providerId?: string; // 添加 providerId 字段用于特殊判断（如 DeepSeek）
 }
 
 interface TerminalAIModeSelectorProps {
@@ -121,12 +243,17 @@ export const TerminalAIModeSelector: React.FC<TerminalAIModeSelectorProps> = ({
     oauthCredentials.forEach((overview) => {
       if (overview.credentials.length > 0) {
         const key = overview.provider_type;
+        // 获取第一个凭证的类型作为代表
+        const firstCredential = overview.credentials[0];
+        const credentialType = firstCredential.credential_type || key;
+
         if (!providerMap.has(key)) {
           providerMap.set(key, {
             key,
             label: getProviderLabel(key),
             registryId: getRegistryIdFromType(key),
             type: key,
+            credentialType,
           });
         }
       }
@@ -153,6 +280,8 @@ export const TerminalAIModeSelector: React.FC<TerminalAIModeSelectorProps> = ({
             registryId,
             fallbackRegistryId: registryId,
             type: provider.type,
+            credentialType: `${provider.type}_key`, // API Key 类型
+            providerId: provider.id, // 保存原始 provider.id
           });
         }
       });
@@ -185,7 +314,18 @@ export const TerminalAIModeSelector: React.FC<TerminalAIModeSelectorProps> = ({
       return aliasConfig.models;
     }
 
-    // 从 model_registry 获取
+    // 优先使用凭证池中的模型列表（从后端 extract_supported_models 逻辑）
+    const credentialModels = extractSupportedModels(
+      selectedProvider.type,
+      selectedProvider.credentialType,
+      selectedProvider.providerId, // 传递 providerId
+    );
+
+    if (credentialModels.length > 0) {
+      return credentialModels;
+    }
+
+    // 降级：从 model_registry 获取
     let models = registryModels.filter(
       (m) => m.provider_id === selectedProvider.registryId,
     );
