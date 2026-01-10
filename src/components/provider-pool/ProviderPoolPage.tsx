@@ -36,7 +36,7 @@ import { getConfig } from "@/hooks/useTauri";
 import { ProviderIcon } from "@/icons/providers";
 import { ApiKeyProviderSection, AddCustomProviderModal } from "./api-key";
 import type { ApiKeyProviderSectionRef } from "./api-key";
-import { OAuthPluginTab } from "./OAuthPluginTab";
+// import { OAuthPluginTab } from "./OAuthPluginTab"; // 暂时禁用
 import { RelayProvidersSection } from "./RelayProvidersSection";
 import { ModelRegistryTab } from "./ModelRegistryTab";
 import type { AddCustomProviderRequest } from "@/lib/api/apiKeyProvider";
@@ -405,18 +405,16 @@ export const ProviderPoolPage = forwardRef<ProviderPoolPageRef>(
           </button>
           <button
             onClick={() => {
-              setActiveCategory("plugins");
+              // setActiveCategory("plugins"); // 暂时禁用
             }}
-            className={`relative px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
-              activeCategory === "plugins"
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
+            disabled
+            className={`relative px-4 py-2 text-sm font-medium rounded-lg border transition-colors opacity-50 cursor-not-allowed border-border bg-card text-muted-foreground`}
             data-testid="plugins-category-tab"
+            title="功能开发中"
           >
             OAuth 插件
-            <span className="absolute -top-1.5 -right-1.5 px-1 py-0.5 text-[10px] font-medium bg-amber-500 text-white rounded">
-              实验
+            <span className="absolute -top-1.5 -right-1.5 px-1 py-0.5 text-[10px] font-medium bg-gray-400 text-white rounded">
+              开发中
             </span>
           </button>
           <button
@@ -508,12 +506,12 @@ export const ProviderPoolPage = forwardRef<ProviderPoolPageRef>(
           </div>
         )}
 
-        {/* OAuth 插件分类 */}
-        {activeCategory === "plugins" && (
+        {/* OAuth 插件分类已隐藏 */}
+        {/* {activeCategory === "plugins" && (
           <div className="min-h-[400px]" data-testid="plugins-section">
             <OAuthPluginTab />
           </div>
-        )}
+        )} */}
 
         {/* 模型库分类 */}
         {activeCategory === "models" && <ModelRegistryTab />}
