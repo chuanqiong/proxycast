@@ -5,7 +5,6 @@ export { EditCredentialModal } from "./EditCredentialModal";
 export { GeminiApiKeySection } from "./GeminiApiKeySection";
 export { VertexAISection } from "./VertexAISection";
 export { CodexSection } from "./CodexSection";
-export { IFlowSection } from "./IFlowSection";
 export { AmpConfigSection } from "./AmpConfigSection";
 export { UsageDisplay } from "./UsageDisplay";
 export { OAuthPluginTab } from "./OAuthPluginTab";

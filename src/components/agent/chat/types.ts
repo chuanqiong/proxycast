@@ -9,7 +9,7 @@ export interface MessageImage {
 /**
  * 内容片段类型（用于交错显示）
  *
- * 参考 goose 框架的 MessageContent 设计：
+ * 参考 aster 框架的 MessageContent 设计：
  * - text: 文本内容片段
  * - tool_use: 工具调用（包含状态和结果）
  */

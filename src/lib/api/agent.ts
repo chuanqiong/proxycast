@@ -396,83 +396,83 @@ export async function getAgentSessionMessages(
 }
 
 // ============================================================
-// Goose Agent API (基于 Goose 框架的完整 Agent 实现)
+// aster Agent API (基于 aster 框架的完整 Agent 实现)
 // ============================================================
 
 /**
- * Goose Agent 状态
+ * aster Agent 状态
  */
-export interface GooseAgentStatus {
+export interface asterAgentStatus {
   initialized: boolean;
   provider?: string;
   model?: string;
 }
 
 /**
- * Goose Provider 信息
+ * aster Provider 信息
  */
-export interface GooseProviderInfo {
+export interface asterProviderInfo {
   name: string;
   display_name: string;
 }
 
 /**
- * Goose 创建会话响应
+ * aster 创建会话响应
  */
-export interface GooseCreateSessionResponse {
+export interface asterCreateSessionResponse {
   session_id: string;
 }
 
 /**
- * 初始化 Goose Agent
+ * 初始化 aster Agent
  *
  * @param providerName - Provider 名称 (如 "anthropic", "openai", "ollama")
  * @param modelName - 模型名称 (如 "claude-sonnet-4-20250514", "gpt-4o")
  */
-export async function initGooseAgent(
+export async function initasterAgent(
   providerName: string,
   modelName: string,
-): Promise<GooseAgentStatus> {
-  return await safeInvoke("goose_agent_init", {
+): Promise<asterAgentStatus> {
+  return await safeInvoke("aster_agent_init", {
     providerName,
     modelName,
   });
 }
 
 /**
- * 获取 Goose Agent 状态
+ * 获取 aster Agent 状态
  */
-export async function getGooseAgentStatus(): Promise<GooseAgentStatus> {
-  return await safeInvoke("goose_agent_status");
+export async function getasterAgentStatus(): Promise<asterAgentStatus> {
+  return await safeInvoke("aster_agent_status");
 }
 
 /**
- * 重置 Goose Agent
+ * 重置 aster Agent
  */
-export async function resetGooseAgent(): Promise<void> {
-  return await safeInvoke("goose_agent_reset");
+export async function resetasterAgent(): Promise<void> {
+  return await safeInvoke("aster_agent_reset");
 }
 
 /**
- * 创建 Goose Agent 会话
+ * 创建 aster Agent 会话
  */
-export async function createGooseSession(
+export async function createasterSession(
   name?: string,
-): Promise<GooseCreateSessionResponse> {
-  return await safeInvoke("goose_agent_create_session", { name });
+): Promise<asterCreateSessionResponse> {
+  return await safeInvoke("aster_agent_create_session", { name });
 }
 
 /**
- * 发送消息到 Goose Agent (流式响应)
+ * 发送消息到 aster Agent (流式响应)
  *
  * 通过 Tauri 事件接收响应流
  */
-export async function sendGooseMessage(
+export async function sendasterMessage(
   sessionId: string,
   message: string,
   eventName: string,
 ): Promise<void> {
-  return await safeInvoke("goose_agent_send_message", {
+  return await safeInvoke("aster_agent_send_message", {
     request: {
       session_id: sessionId,
       message,
@@ -482,19 +482,19 @@ export async function sendGooseMessage(
 }
 
 /**
- * 扩展 Goose Agent 系统提示词
+ * 扩展 aster Agent 系统提示词
  */
-export async function extendGooseSystemPrompt(
+export async function extendasterSystemPrompt(
   instruction: string,
 ): Promise<void> {
-  return await safeInvoke("goose_agent_extend_system_prompt", { instruction });
+  return await safeInvoke("aster_agent_extend_system_prompt", { instruction });
 }
 
 /**
- * 获取 Goose 支持的 Provider 列表
+ * 获取 aster 支持的 Provider 列表
  */
-export async function listGooseProviders(): Promise<GooseProviderInfo[]> {
-  return await safeInvoke("goose_agent_list_providers");
+export async function listasterProviders(): Promise<asterProviderInfo[]> {
+  return await safeInvoke("aster_agent_list_providers");
 }
 
 // ============================================================

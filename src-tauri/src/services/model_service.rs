@@ -83,11 +83,8 @@ impl ModelService {
             // TODO: 未来可以通过 ProviderPoolService 来获取动态模型列表
             CredentialData::KiroOAuth { .. }
             | CredentialData::GeminiOAuth { .. }
-            | CredentialData::QwenOAuth { .. }
             | CredentialData::CodexOAuth { .. }
-            | CredentialData::ClaudeOAuth { .. }
-            | CredentialData::IFlowOAuth { .. }
-            | CredentialData::IFlowCookie { .. } => {
+            | CredentialData::ClaudeOAuth { .. } => {
                 tracing::info!("[MODEL_SERVICE] OAuth 凭证使用默认模型列表");
                 Ok(self.get_default_models_for_provider(&credential.provider_type))
             }
@@ -365,10 +362,6 @@ impl ModelService {
                 // Gemini 1.5 系列（已弃用但仍可用）
                 "gemini-1.5-pro".to_string(),
                 "gemini-1.5-flash".to_string(),
-            ],
-            PoolProviderType::Qwen => vec![
-                "qwen3-coder-plus".to_string(),
-                "qwen3-coder-flash".to_string(),
             ],
             PoolProviderType::Antigravity => vec![
                 "gemini-2.5-computer-use-preview-10-2025".to_string(),

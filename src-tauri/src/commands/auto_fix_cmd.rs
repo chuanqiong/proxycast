@@ -131,7 +131,6 @@ async fn fix_default_provider_issue(
 struct CredentialStats {
     kiro_count: usize,
     gemini_count: usize,
-    qwen_count: usize,
     openai_count: usize,
     claude_count: usize,
     total_count: usize,
@@ -151,7 +150,6 @@ async fn get_credential_stats(db: &State<'_, DbConnection>) -> Result<Credential
         match cred.provider_type {
             PoolProviderType::Kiro => stats.kiro_count += 1,
             PoolProviderType::Gemini => stats.gemini_count += 1,
-            PoolProviderType::Qwen => stats.qwen_count += 1,
             PoolProviderType::OpenAI => stats.openai_count += 1,
             PoolProviderType::Claude => stats.claude_count += 1,
             _ => {}
@@ -160,10 +158,9 @@ async fn get_credential_stats(db: &State<'_, DbConnection>) -> Result<Credential
     }
 
     tracing::info!(
-        "[自动修复] 凭证统计: kiro={}, gemini={}, qwen={}, claude={}, openai={}, total={}",
+        "[自动修复] 凭证统计: kiro={}, gemini={}, claude={}, openai={}, total={}",
         stats.kiro_count,
         stats.gemini_count,
-        stats.qwen_count,
         stats.claude_count,
         stats.openai_count,
         stats.total_count
@@ -177,7 +174,6 @@ fn is_provider_available(provider: &str, stats: &CredentialStats) -> bool {
     match provider {
         "kiro" => stats.kiro_count > 0,
         "gemini" => stats.gemini_count > 0,
-        "qwen" => stats.qwen_count > 0,
         "openai" => stats.openai_count > 0,
         "claude" => stats.claude_count > 0,
         _ => false,
@@ -186,13 +182,11 @@ fn is_provider_available(provider: &str, stats: &CredentialStats) -> bool {
 
 /// 寻找最佳可用Provider
 fn find_best_available_provider(stats: &CredentialStats) -> Option<String> {
-    // 优先级：kiro > gemini > qwen > claude > openai
+    // 优先级：kiro > gemini > claude > openai
     if stats.kiro_count > 0 {
         Some("kiro".to_string())
     } else if stats.gemini_count > 0 {
         Some("gemini".to_string())
-    } else if stats.qwen_count > 0 {
-        Some("qwen".to_string())
     } else if stats.claude_count > 0 {
         Some("claude".to_string())
     } else if stats.openai_count > 0 {

@@ -4,13 +4,11 @@ import { safeInvoke } from "@/lib/dev-bridge";
 export type PoolProviderType =
   | "kiro"
   | "gemini"
-  | "qwen"
   | "antigravity"
   | "openai"
   | "claude"
   | "codex"
   | "claude_oauth"
-  | "iflow"
   | "gemini_api_key";
 
 // Credential data types
@@ -23,11 +21,6 @@ export interface GeminiOAuthCredential {
   type: "gemini_oauth";
   creds_file_path: string;
   project_id?: string;
-}
-
-export interface QwenOAuthCredential {
-  type: "qwen_oauth";
-  creds_file_path: string;
 }
 
 export interface AntigravityOAuthCredential {
@@ -65,28 +58,15 @@ export interface ClaudeOAuthCredential {
   creds_file_path: string;
 }
 
-export interface IFlowOAuthCredential {
-  type: "iflow_oauth";
-  creds_file_path: string;
-}
-
-export interface IFlowCookieCredential {
-  type: "iflow_cookie";
-  creds_file_path: string;
-}
-
 export type CredentialData =
   | KiroOAuthCredential
   | GeminiOAuthCredential
-  | QwenOAuthCredential
   | AntigravityOAuthCredential
   | OpenAIKeyCredential
   | ClaudeKeyCredential
   | GeminiApiKeyCredential
   | CodexOAuthCredential
-  | ClaudeOAuthCredential
-  | IFlowOAuthCredential
-  | IFlowCookieCredential;
+  | ClaudeOAuthCredential;
 
 // Provider credential
 export interface ProviderCredential {
@@ -316,13 +296,6 @@ export const providerPoolApi = {
     });
   },
 
-  async addQwenOAuth(
-    credsFilePath: string,
-    name?: string,
-  ): Promise<ProviderCredential> {
-    return safeInvoke("add_qwen_oauth_credential", { credsFilePath, name });
-  },
-
   async addOpenAIKey(
     apiKey: string,
     baseUrl?: string,
@@ -382,20 +355,6 @@ export const providerPoolApi = {
     name?: string,
   ): Promise<ProviderCredential> {
     return safeInvoke("add_claude_oauth_credential", { credsFilePath, name });
-  },
-
-  async addIFlowOAuth(
-    credsFilePath: string,
-    name?: string,
-  ): Promise<ProviderCredential> {
-    return safeInvoke("add_iflow_oauth_credential", { credsFilePath, name });
-  },
-
-  async addIFlowCookie(
-    credsFilePath: string,
-    name?: string,
-  ): Promise<ProviderCredential> {
-    return safeInvoke("add_iflow_cookie_credential", { credsFilePath, name });
   },
 
   // Antigravity OAuth 登录（打开浏览器授权）
@@ -458,28 +417,6 @@ export const providerPoolApi = {
       isSetupToken,
       name,
     });
-  },
-
-  // Qwen Device Code Flow 登录（打开浏览器授权）
-  async startQwenDeviceCodeLogin(name?: string): Promise<ProviderCredential> {
-    return safeInvoke("start_qwen_device_code_login", { name });
-  },
-
-  // 获取 Qwen Device Code 并等待用户授权（不自动打开浏览器）
-  // 服务器会在后台轮询等待授权，成功后返回凭证
-  async getQwenDeviceCodeAndWait(name?: string): Promise<ProviderCredential> {
-    return safeInvoke("get_qwen_device_code_and_wait", { name });
-  },
-
-  // iFlow OAuth 登录（打开浏览器授权）
-  async startIFlowOAuthLogin(name?: string): Promise<ProviderCredential> {
-    return safeInvoke("start_iflow_oauth_login", { name });
-  },
-
-  // 获取 iFlow OAuth 授权 URL 并等待回调（不自动打开浏览器）
-  // 服务器会在后台等待回调，成功后返回凭证
-  async getIFlowAuthUrlAndWait(name?: string): Promise<ProviderCredential> {
-    return safeInvoke("get_iflow_auth_url_and_wait", { name });
   },
 
   // Gemini OAuth 登录（打开浏览器授权）

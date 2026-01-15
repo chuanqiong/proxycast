@@ -315,13 +315,11 @@ fn get_oauth_base_url(provider_type: &PoolProviderType) -> String {
     match provider_type {
         PoolProviderType::Kiro => "https://api.anthropic.com".to_string(),
         PoolProviderType::Gemini => "https://generativelanguage.googleapis.com".to_string(),
-        PoolProviderType::Qwen => "https://dashscope.aliyuncs.com/compatible-mode/v1".to_string(),
         PoolProviderType::Antigravity => "https://api.anthropic.com".to_string(),
         PoolProviderType::Vertex => "https://vertex-ai.googleapis.com".to_string(),
         PoolProviderType::GeminiApiKey => "https://generativelanguage.googleapis.com".to_string(),
         PoolProviderType::Codex => "https://api.openai.com/v1".to_string(),
         PoolProviderType::ClaudeOAuth => "https://api.anthropic.com".to_string(),
-        PoolProviderType::IFlow => "https://chat.iflyrec.com".to_string(),
         _ => "https://api.openai.com/v1".to_string(),
     }
 }

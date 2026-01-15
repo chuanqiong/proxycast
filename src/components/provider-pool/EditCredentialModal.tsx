@@ -43,7 +43,6 @@ const providerModels: Record<PoolProviderType, string[]> = {
     "gemini-2.5-flash-preview-09-2025",
     "gemini-3-pro-preview",
   ],
-  qwen: ["qwen3-coder-plus", "qwen3-coder-flash"],
   antigravity: [
     "gemini-3-pro-preview",
     "gemini-3-pro-image-preview",
@@ -59,7 +58,6 @@ const providerModels: Record<PoolProviderType, string[]> = {
     "claude-3-5-haiku-latest",
     "claude-sonnet-4-20250514",
   ], // Claude OAuth
-  iflow: ["deepseek-chat", "deepseek-reasoner"], // iFlow
   gemini_api_key: [
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
@@ -136,10 +134,8 @@ export function EditCredentialModal({
   const getProviderType = (): PoolProviderType => {
     if (credential.credential_type.includes("kiro")) return "kiro";
     if (credential.credential_type.includes("gemini")) return "gemini";
-    if (credential.credential_type.includes("qwen")) return "qwen";
     if (credential.credential_type.includes("codex")) return "codex";
     if (credential.credential_type === "claude_oauth") return "claude_oauth";
-    if (credential.credential_type.includes("iflow")) return "iflow";
     if (credential.credential_type.includes("openai")) return "openai";
     if (credential.credential_type.includes("claude")) return "claude";
     return "kiro";

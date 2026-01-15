@@ -50,12 +50,6 @@ export function useProviderPool() {
     await fetchOverview();
   };
 
-  // Add Qwen OAuth credential
-  const addQwenOAuth = async (credsFilePath: string, name?: string) => {
-    await providerPoolApi.addQwenOAuth(credsFilePath, name);
-    await fetchOverview();
-  };
-
   // Add OpenAI API Key credential
   const addOpenAIKey = async (
     apiKey: string,
@@ -191,7 +185,6 @@ export function useProviderPool() {
     refresh: fetchOverview,
     addKiroOAuth,
     addGeminiOAuth,
-    addQwenOAuth,
     addOpenAIKey,
     addClaudeKey,
     updateCredential,

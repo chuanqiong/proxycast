@@ -14,11 +14,6 @@ import {
   ChevronUp,
   Plus,
   Package,
-  Download,
-  Cpu,
-  Globe,
-  Activity,
-  FileCode,
 } from "lucide-react";
 import { PluginInstallDialog } from "./PluginInstallDialog";
 import { PluginUninstallDialog } from "./PluginUninstallDialog";
@@ -85,61 +80,6 @@ interface InstalledPlugin {
   enabled: boolean;
 }
 
-/**
- * 推荐插件配置
- */
-interface RecommendedPlugin {
-  /** 插件 ID */
-  id: string;
-  /** 插件名称 */
-  name: string;
-  /** 插件描述 */
-  description: string;
-  /** 图标组件 */
-  icon: React.ComponentType<{ className?: string }>;
-  /** 下载 URL */
-  downloadUrl: string;
-}
-
-/**
- * 推荐插件列表
- */
-const recommendedPlugins: RecommendedPlugin[] = [
-  {
-    id: "machine-id-tool",
-    name: "机器码管理工具",
-    description: "查看、修改和管理系统机器码，支持跨平台操作",
-    icon: Cpu,
-    // 插件包从 MachineIdTool 仓库 release 下载
-    downloadUrl:
-      "https://github.com/aiclientproxy/MachineIdTool/releases/latest/download/machine-id-tool-plugin.zip",
-  },
-  {
-    id: "browser-interception",
-    name: "浏览器拦截器",
-    description: "拦截桌面应用的浏览器启动，支持手动复制 URL 到指纹浏览器",
-    icon: Globe,
-    downloadUrl:
-      "https://github.com/aiclientproxy/browser-interception/releases/latest/download/browser-interception-plugin.zip",
-  },
-  {
-    id: "flow-monitor",
-    name: "Flow Monitor",
-    description: "监控和分析 LLM API 请求，提供详细的流量分析和调试功能",
-    icon: Activity,
-    downloadUrl:
-      "https://github.com/aiclientproxy/flow-monitor/releases/latest/download/flow-monitor-plugin.zip",
-  },
-  {
-    id: "config-switch",
-    name: "配置管理",
-    description: "一键切换 API 配置，支持 Claude Code、Codex、Gemini 等客户端",
-    icon: FileCode,
-    downloadUrl:
-      "https://github.com/aiclientproxy/config-switch/releases/latest/download/config-switch-plugin.zip",
-  },
-];
-
 export function PluginManager() {
   const [status, setStatus] = useState<PluginServiceStatus | null>(null);
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
@@ -154,9 +94,6 @@ export function PluginManager() {
   const [showInstallDialog, setShowInstallDialog] = useState(false);
   const [pluginToUninstall, setPluginToUninstall] =
     useState<InstalledPlugin | null>(null);
-  const [pendingInstallUrl, setPendingInstallUrl] = useState<string | null>(
-    null,
-  );
 
   const fetchData = useCallback(async () => {
     try {
@@ -181,26 +118,13 @@ export function PluginManager() {
     fetchData();
   }, [fetchData]);
 
-  // 处理一键安装
-  const handleQuickInstall = useCallback((downloadUrl: string) => {
-    setPendingInstallUrl(downloadUrl);
-    setShowInstallDialog(true);
-  }, []);
-
   // 处理安装成功
   const handleInstallSuccess = useCallback(() => {
     fetchData();
-    setPendingInstallUrl(null);
     toast.success("插件安装成功");
     // 触发侧边栏刷新事件
     window.dispatchEvent(new CustomEvent("plugin-changed"));
   }, [fetchData]);
-
-  // 过滤出未安装的推荐插件
-  const installedPluginIds = new Set(installedPlugins.map((p) => p.id));
-  const uninstalledRecommendedPlugins = recommendedPlugins.filter(
-    (plugin) => !installedPluginIds.has(plugin.id),
-  );
 
   const handleTogglePlugin = async (name: string, currentEnabled: boolean) => {
     try {
@@ -332,50 +256,6 @@ export function PluginManager() {
         )}
       </div>
 
-      {/* 推荐插件 */}
-      {uninstalledRecommendedPlugins.length > 0 && (
-        <div className="rounded-lg border bg-card">
-          <div className="p-4 border-b">
-            <h4 className="font-semibold flex items-center gap-2">
-              <Download className="h-4 w-4" />
-              推荐插件
-            </h4>
-          </div>
-          <div className="divide-y">
-            {uninstalledRecommendedPlugins.map((plugin) => (
-              <div key={plugin.id} className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <plugin.icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{plugin.name}</span>
-                        <Badge variant="outline" className="text-xs">
-                          推荐
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {plugin.description}
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => handleQuickInstall(plugin.downloadUrl)}
-                    className="gap-1"
-                  >
-                    <Download className="h-4 w-4" />
-                    一键安装
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* 已安装插件列表（通过安装器安装的） */}
       {installedPlugins.length > 0 && (
         <div className="rounded-lg border bg-card">
@@ -459,10 +339,8 @@ export function PluginManager() {
         isOpen={showInstallDialog}
         onClose={() => {
           setShowInstallDialog(false);
-          setPendingInstallUrl(null);
         }}
         onSuccess={handleInstallSuccess}
-        initialUrl={pendingInstallUrl || undefined}
       />
 
       {/* 卸载确认对话框 */}

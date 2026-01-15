@@ -330,22 +330,6 @@ pub async fn management_add_credential(
                 );
             }
         }
-        PoolProviderType::Qwen => {
-            if let Some(token_file) = request.token_file {
-                CredentialData::QwenOAuth {
-                    creds_file_path: token_file,
-                }
-            } else {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(AddCredentialResponse {
-                        success: false,
-                        message: "Token file is required for Qwen provider".to_string(),
-                        id: None,
-                    }),
-                );
-            }
-        }
         PoolProviderType::Antigravity => {
             if let Some(token_file) = request.token_file {
                 CredentialData::AntigravityOAuth {
@@ -409,23 +393,6 @@ pub async fn management_add_credential(
                     Json(AddCredentialResponse {
                         success: false,
                         message: "Token file is required for Claude OAuth provider".to_string(),
-                        id: None,
-                    }),
-                );
-            }
-        }
-        PoolProviderType::IFlow => {
-            if let Some(token_file) = request.token_file {
-                // 默认使用 OAuth 类型，Cookie 类型需要通过其他方式添加
-                CredentialData::IFlowOAuth {
-                    creds_file_path: token_file,
-                }
-            } else {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(AddCredentialResponse {
-                        success: false,
-                        message: "Token file is required for iFlow provider".to_string(),
                         id: None,
                     }),
                 );

@@ -23,7 +23,6 @@ use crate::providers::claude_custom::ClaudeCustomProvider;
 use crate::providers::gemini::GeminiProvider;
 use crate::providers::kiro::KiroProvider;
 use crate::providers::openai_custom::OpenAICustomProvider;
-use crate::providers::qwen::QwenProvider;
 use crate::server_utils::{
     build_anthropic_response, build_anthropic_stream_response, build_error_response,
     build_error_response_with_status, build_gemini_cli_request, build_gemini_native_request,
@@ -162,7 +161,6 @@ pub struct ServerState {
     pub start_time: Option<std::time::Instant>,
     pub kiro_provider: KiroProvider,
     pub gemini_provider: GeminiProvider,
-    pub qwen_provider: QwenProvider,
     pub openai_custom_provider: OpenAICustomProvider,
     pub claude_custom_provider: ClaudeCustomProvider,
     pub default_provider_ref: Arc<RwLock<String>>,
@@ -180,7 +178,6 @@ impl ServerState {
     pub fn new(config: Config) -> Self {
         let kiro = KiroProvider::new();
         let gemini = GeminiProvider::new();
-        let qwen = QwenProvider::new();
         let openai_custom = OpenAICustomProvider::new();
         let claude_custom = ClaudeCustomProvider::new();
         let default_provider_ref = Arc::new(RwLock::new(config.default_provider.clone()));
@@ -192,7 +189,6 @@ impl ServerState {
             start_time: None,
             kiro_provider: kiro,
             gemini_provider: gemini,
-            qwen_provider: qwen,
             openai_custom_provider: openai_custom,
             claude_custom_provider: claude_custom,
             default_provider_ref,
@@ -452,7 +448,6 @@ pub struct AppState {
     pub logs: Arc<RwLock<LogStore>>,
     pub kiro_refresh_lock: Arc<tokio::sync::Mutex<()>>,
     pub gemini_refresh_lock: Arc<tokio::sync::Mutex<()>>,
-    pub qwen_refresh_lock: Arc<tokio::sync::Mutex<()>>,
     pub pool_service: Arc<ProviderPoolService>,
     pub token_cache: Arc<TokenCacheService>,
     pub db: Option<DbConnection>,
@@ -884,7 +879,6 @@ async fn run_server(
         logs,
         kiro_refresh_lock: Arc::new(tokio::sync::Mutex::new(())),
         gemini_refresh_lock: Arc::new(tokio::sync::Mutex::new(())),
-        qwen_refresh_lock: Arc::new(tokio::sync::Mutex::new(())),
         pool_service,
         token_cache,
         db,
@@ -1029,16 +1023,16 @@ async fn run_server(
             "/api/provider/:provider/v1/chat/completions",
             post(amp_chat_completions),
         )
-        .route("/api/provider/:provider/v1/messages", post(amp_messages))
-        // Amp CLI 管理代理路由
-        .route(
-            "/api/auth/*path",
-            axum::routing::any(amp_management_proxy_auth),
-        )
-        .route(
-            "/api/user/*path",
-            axum::routing::any(amp_management_proxy_user),
-        )
+        // TODO: amp_messages 和 amp_management_proxy 路由暂时禁用
+        // .route("/api/provider/:provider/v1/messages", post(amp_messages))
+        // .route(
+        //     "/api/auth/*path",
+        //     axum::routing::any(amp_management_proxy_auth),
+        // )
+        // .route(
+        //     "/api/user/*path",
+        //     axum::routing::any(amp_management_proxy_user),
+        // )
         // 管理 API 路由
         .merge(management_routes)
         // Kiro凭证管理API路由
@@ -1884,170 +1878,6 @@ async fn amp_chat_completions(
                 .into_response()
         }
     }
-}
-
-/// Amp CLI messages 处理
-///
-/// 处理 `/api/provider/:provider/v1/messages` 路由
-/// 支持模型映射，将不可用模型映射到可用替代
-async fn amp_messages(
-    State(state): State<AppState>,
-    Path(provider): Path<String>,
-    headers: HeaderMap,
-    Json(mut request): Json<AnthropicMessagesRequest>,
-) -> Response {
-    // 使用 Anthropic 格式的认证验证
-    if let Err(e) = handlers::verify_api_key_anthropic(&headers, &state.api_key).await {
-        state.logs.write().await.add(
-            "warn",
-            &format!(
-                "Unauthorized request to /api/provider/{}/v1/messages",
-                provider
-            ),
-        );
-        return e.into_response();
-    }
-
-    // 应用模型映射
-    let original_model = request.model.clone();
-    let mapped_model = state.amp_router.apply_model_mapping(&request.model);
-    if mapped_model != original_model {
-        state.logs.write().await.add(
-            "info",
-            &format!(
-                "[AMP] Model mapping applied: {} -> {}",
-                original_model, mapped_model
-            ),
-        );
-        request.model = mapped_model;
-    }
-
-    state.logs.write().await.add(
-        "info",
-        &format!(
-            "[AMP] POST /api/provider/{}/v1/messages model={} stream={}",
-            provider, request.model, request.stream
-        ),
-    );
-
-    // 尝试根据 provider 名称选择凭证
-    let credential = match &state.db {
-        Some(db) => {
-            // 先尝试从 Provider Pool 查找
-            let pool_cred = if let Ok(Some(cred)) =
-                state
-                    .pool_service
-                    .select_credential(db, &provider, Some(&request.model))
-            {
-                Some(cred)
-            }
-            // 然后尝试按名称查找
-            else if let Ok(Some(cred)) = state.pool_service.get_by_name(db, &provider) {
-                Some(cred)
-            }
-            // 最后尝试按 UUID 查找
-            else if let Ok(Some(cred)) = state.pool_service.get_by_uuid(db, &provider) {
-                Some(cred)
-            } else {
-                None
-            };
-
-            // 如果 Provider Pool 中没有找到，尝试从 API Key Provider 查找
-            if pool_cred.is_none() {
-                eprintln!(
-                    "[AMP_MESSAGES] Provider Pool 中未找到凭证，尝试 API Key Provider: provider={}",
-                    provider
-                );
-
-                match state.api_key_service.get_fallback_credential(
-                    db,
-                    &crate::models::provider_pool_model::PoolProviderType::Anthropic,
-                    Some(&provider),
-                ) {
-                    Ok(Some(cred)) => {
-                        eprintln!(
-                            "[AMP_MESSAGES] 通过 provider_id '{}' 找到 API Key Provider 凭证: name={:?}",
-                            provider, cred.name
-                        );
-                        Some(cred)
-                    }
-                    Ok(None) => {
-                        eprintln!("[AMP_MESSAGES] 未找到任何凭证 for provider '{}'", provider);
-                        None
-                    }
-                    Err(e) => {
-                        eprintln!("[AMP_MESSAGES] 查找 API Key Provider 凭证时出错: {}", e);
-                        None
-                    }
-                }
-            } else {
-                pool_cred
-            }
-        }
-        None => None,
-    };
-
-    match credential {
-        Some(cred) => {
-            state.logs.write().await.add(
-                "info",
-                &format!(
-                    "[AMP] Using credential: type={} name={:?} uuid={}",
-                    cred.provider_type,
-                    cred.name,
-                    &cred.uuid[..8]
-                ),
-            );
-            // 注意：这里没有 Flow 捕获，因为是通过 AMP CLI 路由的请求
-            handlers::call_provider_anthropic(&state, &cred, &request, None).await
-        }
-        None => {
-            // 不再回退到默认 provider，直接返回错误
-            state.logs.write().await.add(
-                "error",
-                &format!(
-                    "[AMP] No available credentials for provider '{}', refusing to fallback",
-                    provider
-                ),
-            );
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(serde_json::json!({
-                    "error": {
-                        "type": "provider_unavailable",
-                        "message": format!("No available credentials for provider '{}'", provider)
-                    }
-                })),
-            )
-                .into_response()
-        }
-    }
-}
-
-/// Amp CLI 管理代理 - auth 路由
-///
-/// 处理 `/api/auth/*` 路由，将请求代理到上游 URL
-async fn amp_management_proxy_auth(
-    State(state): State<AppState>,
-    Path(path): Path<String>,
-    headers: HeaderMap,
-    method: axum::http::Method,
-    body: axum::body::Bytes,
-) -> Response {
-    amp_management_proxy_internal(state, &format!("auth/{}", path), headers, method, body).await
-}
-
-/// Amp CLI 管理代理 - user 路由
-///
-/// 处理 `/api/user/*` 路由，将请求代理到上游 URL
-async fn amp_management_proxy_user(
-    State(state): State<AppState>,
-    Path(path): Path<String>,
-    headers: HeaderMap,
-    method: axum::http::Method,
-    body: axum::body::Bytes,
-) -> Response {
-    amp_management_proxy_internal(state, &format!("user/{}", path), headers, method, body).await
 }
 
 /// Amp CLI 管理代理内部实现

@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Package, Loader2, Download, type LucideIcon } from "lucide-react";
+import { Package, Loader2, type LucideIcon } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { safeInvoke } from "@/lib/dev-bridge";
 import { Badge } from "@/components/ui/badge";
@@ -82,22 +82,6 @@ interface ToolCardProps {
   disabled?: boolean;
   onClick?: () => void;
   source?: "builtin" | "plugin";
-}
-
-/**
- * 推荐插件配置
- */
-interface RecommendedPlugin {
-  /** 插件 ID */
-  id: string;
-  /** 插件名称 */
-  name: string;
-  /** 插件描述 */
-  description: string;
-  /** 图标名称 */
-  icon: string;
-  /** 下载 URL */
-  downloadUrl: string;
 }
 
 /**
@@ -211,47 +195,10 @@ const placeholderTools: DynamicToolCard[] = [
   },
 ];
 
-/**
- * 推荐插件列表
- */
-const recommendedPlugins: RecommendedPlugin[] = [
-  {
-    id: "machine-id-tool",
-    name: "机器码管理工具",
-    description: "查看、修改和管理系统机器码，支持跨平台操作",
-    icon: "Cpu",
-    // 插件包从 MachineIdTool 仓库 release 下载
-    downloadUrl:
-      "https://github.com/aiclientproxy/MachineIdTool/releases/latest/download/machine-id-tool-plugin.zip",
-  },
-  {
-    id: "browser-interception",
-    name: "浏览器拦截器",
-    description: "拦截桌面应用的浏览器启动，支持手动复制 URL 到指纹浏览器",
-    icon: "Globe",
-    downloadUrl:
-      "https://github.com/aiclientproxy/browser-interception/releases/latest/download/browser-interception-plugin.zip",
-  },
-  {
-    id: "flow-monitor",
-    name: "Flow Monitor",
-    description: "监控和分析 LLM API 请求，提供详细的流量分析和调试功能",
-    icon: "Activity",
-    downloadUrl:
-      "https://github.com/aiclientproxy/flow-monitor/releases/latest/download/flow-monitor-plugin.zip",
-  },
-];
-
 export function ToolsPage({ onNavigate }: ToolsPageProps) {
   const [pluginTools, setPluginTools] = useState<DynamicToolCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInstallDialog, setShowInstallDialog] = useState(false);
-  const [pendingInstallUrl, setPendingInstallUrl] = useState<string | null>(
-    null,
-  );
-  const [installedPluginIds, setInstalledPluginIds] = useState<Set<string>>(
-    new Set(),
-  );
 
   // 加载插件工具和已安装插件列表
   const loadPluginTools = useCallback(async () => {
@@ -266,12 +213,6 @@ export function ToolsPage({ onNavigate }: ToolsPageProps) {
         pluginId: plugin.pluginId,
       }));
       setPluginTools(tools);
-
-      // 更新已安装插件 ID 集合
-      const installedIds = new Set(
-        plugins.map((p: PluginUIInfo) => p.pluginId),
-      );
-      setInstalledPluginIds(installedIds);
     } catch (error) {
       console.error("加载插件工具失败:", error);
     } finally {
@@ -287,14 +228,7 @@ export function ToolsPage({ onNavigate }: ToolsPageProps) {
   // 处理安装成功
   const handleInstallSuccess = useCallback(() => {
     loadPluginTools();
-    setPendingInstallUrl(null);
   }, [loadPluginTools]);
-
-  // 处理一键安装
-  const handleQuickInstall = useCallback((downloadUrl: string) => {
-    setPendingInstallUrl(downloadUrl);
-    setShowInstallDialog(true);
-  }, []);
 
   // 处理插件启用/禁用
   const handleTogglePluginEnabled = useCallback(
@@ -334,11 +268,6 @@ export function ToolsPage({ onNavigate }: ToolsPageProps) {
   // 合并内置工具和插件工具
   const allTools = [...builtinTools, ...pluginTools, ...placeholderTools];
   const activeToolsCount = builtinTools.length + pluginTools.length;
-
-  // 过滤出未安装的推荐插件
-  const uninstalledRecommendedPlugins = recommendedPlugins.filter(
-    (plugin) => !installedPluginIds.has(plugin.id),
-  );
 
   /**
    * 处理工具卡片点击
@@ -421,61 +350,13 @@ export function ToolsPage({ onNavigate }: ToolsPageProps) {
         </p>
       </div>
 
-      {/* 推荐插件区域 */}
-      {uninstalledRecommendedPlugins.length > 0 && (
-        <div className="mt-8">
-          <h3 className="text-lg font-semibold mb-4">推荐插件</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {uninstalledRecommendedPlugins.map((plugin) => {
-              const Icon = getLucideIcon(plugin.icon);
-              return (
-                <Card
-                  key={plugin.id}
-                  className="border-dashed border-2 border-primary/30 bg-primary/5"
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <Icon className="w-6 h-6 text-primary" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg">{plugin.name}</CardTitle>
-                        <Badge variant="outline" className="text-xs mt-1">
-                          推荐安装
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription className="text-sm text-muted-foreground mb-4">
-                      {plugin.description}
-                    </CardDescription>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleQuickInstall(plugin.downloadUrl)}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      一键安装
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* 插件安装对话框 */}
       <PluginInstallDialog
         isOpen={showInstallDialog}
         onClose={() => {
           setShowInstallDialog(false);
-          setPendingInstallUrl(null);
         }}
         onSuccess={handleInstallSuccess}
-        initialUrl={pendingInstallUrl || undefined}
       />
     </div>
   );

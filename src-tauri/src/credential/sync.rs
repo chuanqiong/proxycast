@@ -136,17 +136,6 @@ impl CredentialSyncService {
                 };
                 config.credential_pool.gemini.push(entry);
             }
-            CredentialData::QwenOAuth { creds_file_path } => {
-                let token_file =
-                    self.save_oauth_token_file(creds_file_path, &credential.uuid, "qwen")?;
-                let entry = CredentialEntry {
-                    id: credential.uuid.clone(),
-                    token_file,
-                    disabled: credential.is_disabled,
-                    proxy_url: None,
-                };
-                config.credential_pool.qwen.push(entry);
-            }
             CredentialData::AntigravityOAuth { .. } => {
                 // Antigravity 暂不支持同步到配置
                 return Err(SyncError::InvalidCredentialType(
@@ -223,18 +212,6 @@ impl CredentialSyncService {
                 // Claude OAuth 暂不支持同步到配置
                 return Err(SyncError::InvalidCredentialType(
                     "Claude OAuth 凭证暂不支持同步到配置".to_string(),
-                ));
-            }
-            CredentialData::IFlowOAuth { .. } => {
-                // iFlow OAuth 暂不支持同步到配置
-                return Err(SyncError::InvalidCredentialType(
-                    "iFlow OAuth 凭证暂不支持同步到配置".to_string(),
-                ));
-            }
-            CredentialData::IFlowCookie { .. } => {
-                // iFlow Cookie 暂不支持同步到配置
-                return Err(SyncError::InvalidCredentialType(
-                    "iFlow Cookie 凭证暂不支持同步到配置".to_string(),
                 ));
             }
             CredentialData::AnthropicKey { api_key, base_url } => {
@@ -330,18 +307,6 @@ impl CredentialSyncService {
                     found = true;
                 }
             }
-            PoolProviderType::Qwen => {
-                if let Some(pos) = config
-                    .credential_pool
-                    .qwen
-                    .iter()
-                    .position(|e| e.id == credential_id)
-                {
-                    let entry = config.credential_pool.qwen.remove(pos);
-                    self.delete_oauth_token_file(&entry.token_file)?;
-                    found = true;
-                }
-            }
             PoolProviderType::OpenAI => {
                 if let Some(pos) = config
                     .credential_pool
@@ -401,12 +366,6 @@ impl CredentialSyncService {
                 // Claude OAuth 暂不支持同步到配置
                 return Err(SyncError::InvalidCredentialType(
                     "Claude OAuth 凭证暂不支持同步到配置".to_string(),
-                ));
-            }
-            PoolProviderType::IFlow => {
-                // iFlow 暂不支持同步到配置
-                return Err(SyncError::InvalidCredentialType(
-                    "iFlow 凭证暂不支持同步到配置".to_string(),
                 ));
             }
             // API Key Provider 类型 - 不支持同步到配置
@@ -477,20 +436,6 @@ impl CredentialSyncService {
                     entry.disabled = credential.is_disabled;
                     let new_token_file =
                         self.save_oauth_token_file(creds_file_path, &credential.uuid, "gemini")?;
-                    entry.token_file = new_token_file;
-                    found = true;
-                }
-            }
-            CredentialData::QwenOAuth { creds_file_path } => {
-                if let Some(entry) = config
-                    .credential_pool
-                    .qwen
-                    .iter_mut()
-                    .find(|e| e.id == credential.uuid)
-                {
-                    entry.disabled = credential.is_disabled;
-                    let new_token_file =
-                        self.save_oauth_token_file(creds_file_path, &credential.uuid, "qwen")?;
                     entry.token_file = new_token_file;
                     found = true;
                 }
@@ -581,18 +526,6 @@ impl CredentialSyncService {
                     "Claude OAuth 凭证暂不支持同步到配置".to_string(),
                 ));
             }
-            CredentialData::IFlowOAuth { .. } => {
-                // iFlow OAuth 暂不支持同步到配置
-                return Err(SyncError::InvalidCredentialType(
-                    "iFlow OAuth 凭证暂不支持同步到配置".to_string(),
-                ));
-            }
-            CredentialData::IFlowCookie { .. } => {
-                // iFlow Cookie 暂不支持同步到配置
-                return Err(SyncError::InvalidCredentialType(
-                    "iFlow Cookie 凭证暂不支持同步到配置".to_string(),
-                ));
-            }
             CredentialData::AnthropicKey { api_key, base_url } => {
                 // Anthropic API Key 更新到 claude 配置
                 if let Some(entry) = config
@@ -651,21 +584,6 @@ impl CredentialSyncService {
                 CredentialData::GeminiOAuth {
                     creds_file_path: token_path.to_string_lossy().to_string(),
                     project_id: None,
-                },
-            );
-            let mut cred = cred;
-            cred.uuid = entry.id.clone();
-            cred.is_disabled = entry.disabled;
-            credentials.push(cred);
-        }
-
-        // 加载 Qwen 凭证
-        for entry in &config.credential_pool.qwen {
-            let token_path = auth_dir.join(&entry.token_file);
-            let cred = ProviderCredential::new(
-                PoolProviderType::Qwen,
-                CredentialData::QwenOAuth {
-                    creds_file_path: token_path.to_string_lossy().to_string(),
                 },
             );
             let mut cred = cred;

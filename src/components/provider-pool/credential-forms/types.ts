@@ -38,23 +38,19 @@ export interface ApiKeyFormProps {
 export const defaultCredsPath: Record<string, string> = {
   kiro: "~/.aws/sso/cache/kiro-auth-token.json",
   gemini: "~/.gemini/oauth_creds.json",
-  qwen: "~/.qwen/oauth_creds.json",
   antigravity: "",
   codex: "~/.codex/auth.json",
   claude_oauth: "~/.claude/oauth.json",
-  iflow: "~/.iflow/oauth_creds.json",
 };
 
 /** Provider 显示名称 */
 export const providerLabels: Record<PoolProviderType, string> = {
   kiro: "Kiro (AWS)",
   gemini: "Gemini (Google)",
-  qwen: "Qwen (阿里)",
   openai: "OpenAI",
   claude: "Claude (Anthropic)",
   antigravity: "Antigravity (Gemini 3 Pro)",
   codex: "Codex (OpenAI OAuth)",
   claude_oauth: "Claude OAuth",
-  iflow: "iFlow",
   gemini_api_key: "Gemini API Key",
 };

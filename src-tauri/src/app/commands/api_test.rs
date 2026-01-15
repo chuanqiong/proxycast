@@ -72,10 +72,6 @@ pub async fn check_api_compatibility(
             ("gemini-2.5-flash", "basic"),
             ("gemini-2.5-flash", "tool_call"),
         ],
-        ProviderType::Qwen => vec![
-            ("qwen3-coder-plus", "basic"),
-            ("qwen3-coder-plus", "tool_call"),
-        ],
         ProviderType::Antigravity => vec![
             ("gemini-3-pro-preview", "basic"),
             ("gemini-3-pro-preview", "tool_call"),
@@ -93,7 +89,6 @@ pub async fn check_api_compatibility(
             ("claude-sonnet-4-5", "basic"),
             ("claude-sonnet-4-5", "tool_call"),
         ],
-        ProviderType::IFlow => vec![("gpt-4o", "basic"), ("gpt-4o", "tool_call")],
         ProviderType::OpenAI | ProviderType::Claude => vec![],
         // API Key Provider 类型 - 暂不支持自动测试
         ProviderType::Anthropic
@@ -174,7 +169,6 @@ pub async fn check_api_compatibility(
             ProviderType::Gemini => {
                 Err("Gemini API compatibility check not yet implemented".into())
             }
-            ProviderType::Qwen => Err("Qwen API compatibility check not yet implemented".into()),
             _ => Err("Provider not supported for direct API check".into()),
         };
 

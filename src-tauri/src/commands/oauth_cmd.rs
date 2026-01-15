@@ -1,7 +1,7 @@
-//! Unified OAuth Commands for Kiro/Gemini/Qwen Providers
+//! Unified OAuth Commands for Kiro/Gemini Providers
 //!
 //! This module consolidates the OAuth credential management commands
-//! for all three OAuth providers into a single set of parameterized commands.
+//! for OAuth providers into a single set of parameterized commands.
 
 use crate::providers;
 use crate::AppState;
@@ -16,7 +16,6 @@ use tauri::State;
 pub enum OAuthProvider {
     Kiro,
     Gemini,
-    Qwen,
 }
 
 impl OAuthProvider {
@@ -24,7 +23,6 @@ impl OAuthProvider {
         match s.to_lowercase().as_str() {
             "kiro" => Ok(OAuthProvider::Kiro),
             "gemini" => Ok(OAuthProvider::Gemini),
-            "qwen" => Ok(OAuthProvider::Qwen),
             _ => Err(format!("Unknown provider: {s}")),
         }
     }
@@ -33,7 +31,6 @@ impl OAuthProvider {
         match self {
             OAuthProvider::Kiro => "Kiro",
             OAuthProvider::Gemini => "Gemini",
-            OAuthProvider::Qwen => "Qwen",
         }
     }
 }
@@ -83,7 +80,6 @@ fn get_creds_path(provider: &OAuthProvider) -> PathBuf {
     match provider {
         OAuthProvider::Kiro => providers::kiro::KiroProvider::default_creds_path(),
         OAuthProvider::Gemini => providers::gemini::GeminiProvider::default_creds_path(),
-        OAuthProvider::Qwen => providers::qwen::QwenProvider::default_creds_path(),
     }
 }
 
@@ -127,21 +123,6 @@ pub async fn get_oauth_credentials(
                 extra: serde_json::json!({}),
             })
         }
-        OAuthProvider::Qwen => {
-            let creds = &s.qwen_provider.credentials;
-            Ok(OAuthCredentialStatus {
-                provider: provider.clone(),
-                loaded: creds.access_token.is_some() || creds.refresh_token.is_some(),
-                has_access_token: creds.access_token.is_some(),
-                has_refresh_token: creds.refresh_token.is_some(),
-                is_valid: s.qwen_provider.is_token_valid(),
-                expiry_info: creds.expiry_date.map(|d| d.to_string()),
-                creds_path: path.to_string_lossy().to_string(),
-                extra: serde_json::json!({
-                    "resource_url": creds.resource_url,
-                }),
-            })
-        }
     }
 }
 
@@ -164,7 +145,6 @@ pub async fn reload_oauth_credentials(
     let result = match provider_type {
         OAuthProvider::Kiro => s.kiro_provider.load_credentials().await,
         OAuthProvider::Gemini => s.gemini_provider.load_credentials().await,
-        OAuthProvider::Qwen => s.qwen_provider.load_credentials().await,
     };
 
     match result {
@@ -202,7 +182,6 @@ pub async fn refresh_oauth_token(
     let result = match provider_type {
         OAuthProvider::Kiro => s.kiro_provider.refresh_token().await,
         OAuthProvider::Gemini => s.gemini_provider.refresh_token().await,
-        OAuthProvider::Qwen => s.qwen_provider.refresh_token().await,
     };
 
     match result {
@@ -312,39 +291,6 @@ pub async fn get_oauth_env_variables(
                 });
             }
         }
-        OAuthProvider::Qwen => {
-            let creds = &s.qwen_provider.credentials;
-            // P0 安全修复：不返回明文敏感凭证
-            if let Some(token) = &creds.access_token {
-                vars.push(EnvVariable {
-                    key: "QWEN_ACCESS_TOKEN".to_string(),
-                    value: String::new(),
-                    masked: mask_token(token),
-                });
-            }
-            if let Some(token) = &creds.refresh_token {
-                vars.push(EnvVariable {
-                    key: "QWEN_REFRESH_TOKEN".to_string(),
-                    value: String::new(),
-                    masked: mask_token(token),
-                });
-            }
-            if let Some(url) = &creds.resource_url {
-                vars.push(EnvVariable {
-                    key: "QWEN_RESOURCE_URL".to_string(),
-                    value: url.clone(),
-                    masked: url.clone(),
-                });
-            }
-            if let Some(expiry) = creds.expiry_date {
-                let expiry_str = expiry.to_string();
-                vars.push(EnvVariable {
-                    key: "QWEN_EXPIRY_DATE".to_string(),
-                    value: expiry_str.clone(),
-                    masked: expiry_str,
-                });
-            }
-        }
     }
 
     Ok(vars)
@@ -398,7 +344,6 @@ pub async fn check_and_reload_oauth_credentials(
         let result = match provider_type {
             OAuthProvider::Kiro => s.kiro_provider.load_credentials().await,
             OAuthProvider::Gemini => s.gemini_provider.load_credentials().await,
-            OAuthProvider::Qwen => s.qwen_provider.load_credentials().await,
         };
 
         match result {
@@ -471,22 +416,6 @@ pub async fn get_all_oauth_credentials(
         expiry_info: gemini_creds.expiry_date.map(|d| d.to_string()),
         creds_path: gemini_path.to_string_lossy().to_string(),
         extra: serde_json::json!({}),
-    });
-
-    // Qwen
-    let qwen_creds = &s.qwen_provider.credentials;
-    let qwen_path = providers::qwen::QwenProvider::default_creds_path();
-    results.push(OAuthCredentialStatus {
-        provider: "qwen".to_string(),
-        loaded: qwen_creds.access_token.is_some() || qwen_creds.refresh_token.is_some(),
-        has_access_token: qwen_creds.access_token.is_some(),
-        has_refresh_token: qwen_creds.refresh_token.is_some(),
-        is_valid: s.qwen_provider.is_token_valid(),
-        expiry_info: qwen_creds.expiry_date.map(|d| d.to_string()),
-        creds_path: qwen_path.to_string_lossy().to_string(),
-        extra: serde_json::json!({
-            "resource_url": qwen_creds.resource_url,
-        }),
     });
 
     Ok(results)

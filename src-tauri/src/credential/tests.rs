@@ -900,8 +900,8 @@ proptest! {
                 },
             ),
             _ => (
-                PoolProviderType::Qwen,
-                PoolCredentialData::QwenOAuth {
+                PoolProviderType::Kiro,
+                PoolCredentialData::KiroOAuth {
                     creds_file_path: source_token_path.to_string_lossy().to_string(),
                 },
             ),
@@ -920,7 +920,6 @@ proptest! {
         let provider_name = match provider_type {
             PoolProviderType::Kiro => "kiro",
             PoolProviderType::Gemini => "gemini",
-            PoolProviderType::Qwen => "qwen",
             _ => "unknown",
         };
         let expected_token_path = auth_dir.join(provider_name).join(format!("{}.json", original_uuid));
@@ -950,7 +949,6 @@ proptest! {
         let loaded_path = match &loaded_cred.credential {
             PoolCredentialData::KiroOAuth { creds_file_path } => creds_file_path.clone(),
             PoolCredentialData::GeminiOAuth { creds_file_path, .. } => creds_file_path.clone(),
-            PoolCredentialData::QwenOAuth { creds_file_path } => creds_file_path.clone(),
             _ => String::new(),
         };
 

@@ -55,11 +55,9 @@ export interface ProviderPoolPageRef {
 const oauthProviderTypes: PoolProviderType[] = [
   "kiro",
   "gemini",
-  "qwen",
   "antigravity",
   "codex",
   "claude_oauth",
-  "iflow",
 ];
 
 // 配置类型 tab（非凭证池）
@@ -71,13 +69,11 @@ type TabType = PoolProviderType | ConfigTabType;
 const providerLabels: Record<PoolProviderType, string> = {
   kiro: "Kiro (AWS)",
   gemini: "Gemini (Google)",
-  qwen: "Qwen (阿里)",
   antigravity: "Antigravity (Gemini 3 Pro)",
   openai: "OpenAI",
   claude: "Claude (Anthropic)",
   codex: "Codex (OAuth / API Key)",
   claude_oauth: "Claude OAuth",
-  iflow: "iFlow",
   gemini_api_key: "Gemini",
 };
 

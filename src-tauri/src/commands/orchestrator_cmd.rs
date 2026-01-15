@@ -159,12 +159,6 @@ fn extract_supported_models(
         CredentialData::CodexOAuth { .. } => {
             vec!["codex-mini-latest".to_string()]
         }
-        CredentialData::QwenOAuth { .. } => {
-            vec![
-                "qwen3-coder-plus".to_string(),
-                "qwen3-coder-flash".to_string(),
-            ]
-        }
         CredentialData::AntigravityOAuth { .. } => {
             vec![
                 // Max 等级
@@ -180,10 +174,6 @@ fn extract_supported_models(
                 "gemini-3-flash-preview".to_string(),
             ]
         }
-        CredentialData::IFlowOAuth { .. } | CredentialData::IFlowCookie { .. } => {
-            // iFlow 是 DeepSeek 的代理服务
-            vec!["deepseek-chat".to_string(), "deepseek-reasoner".to_string()]
-        }
         _ => vec![],
     }
 }
@@ -196,9 +186,7 @@ fn map_pool_provider_type(pool_type: &str) -> ProviderType {
         "gemini" | "gemini_api_key" | "gemini_oauth" => ProviderType::Google,
         "kiro" => ProviderType::Kiro,
         "codex" => ProviderType::OpenAI,
-        "qwen" => ProviderType::Custom,
         "antigravity" => ProviderType::Antigravity,
-        "iflow" | "deepseek" => ProviderType::Custom, // DeepSeek 及其代理 iFlow
         _ => ProviderType::Custom,
     }
 }

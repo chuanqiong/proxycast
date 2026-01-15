@@ -140,14 +140,14 @@ const defaultMocks: Record<string, any> = {
   agent_term_scrollback_response: () => ({}),
   native_agent_chat_stream: () => ({}),
 
-  // Goose Agent
-  goose_agent_init: () => ({ success: true }),
-  goose_agent_status: () => ({ initialized: false }),
-  goose_agent_reset: () => ({ success: true }),
-  goose_agent_create_session: () => ({ session_id: "mock-goose-session" }),
-  goose_agent_send_message: () => ({ message_id: "mock-message-id" }),
-  goose_agent_extend_system_prompt: () => ({ success: true }),
-  goose_agent_list_providers: () => [],
+  // aster Agent
+  aster_agent_init: () => ({ success: true }),
+  aster_agent_status: () => ({ initialized: false }),
+  aster_agent_reset: () => ({ success: true }),
+  aster_agent_create_session: () => ({ session_id: "mock-aster-session" }),
+  aster_agent_send_message: () => ({ message_id: "mock-message-id" }),
+  aster_agent_extend_system_prompt: () => ({ success: true }),
+  aster_agent_list_providers: () => [],
 
   // 终端相关
   create_terminal_session: () => ({ uuid: "mock-terminal-uuid" }),

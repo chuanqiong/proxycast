@@ -18,7 +18,6 @@ use crate::tray::TrayManager;
 pub enum ProviderType {
     Kiro,
     Gemini,
-    Qwen,
     #[serde(rename = "openai")]
     OpenAI,
     Claude,
@@ -29,8 +28,6 @@ pub enum ProviderType {
     Codex,
     #[serde(rename = "claude_oauth")]
     ClaudeOAuth,
-    #[serde(rename = "iflow")]
-    IFlow,
     // API Key Provider 类型
     Anthropic,
     #[serde(rename = "azure_openai")]
@@ -45,7 +42,6 @@ impl std::fmt::Display for ProviderType {
         match self {
             ProviderType::Kiro => write!(f, "kiro"),
             ProviderType::Gemini => write!(f, "gemini"),
-            ProviderType::Qwen => write!(f, "qwen"),
             ProviderType::OpenAI => write!(f, "openai"),
             ProviderType::Claude => write!(f, "claude"),
             ProviderType::Antigravity => write!(f, "antigravity"),
@@ -53,7 +49,6 @@ impl std::fmt::Display for ProviderType {
             ProviderType::GeminiApiKey => write!(f, "gemini_api_key"),
             ProviderType::Codex => write!(f, "codex"),
             ProviderType::ClaudeOAuth => write!(f, "claude_oauth"),
-            ProviderType::IFlow => write!(f, "iflow"),
             ProviderType::Anthropic => write!(f, "anthropic"),
             ProviderType::AzureOpenai => write!(f, "azure_openai"),
             ProviderType::AwsBedrock => write!(f, "aws_bedrock"),
@@ -69,7 +64,6 @@ impl std::str::FromStr for ProviderType {
         match s.to_lowercase().as_str() {
             "kiro" => Ok(ProviderType::Kiro),
             "gemini" => Ok(ProviderType::Gemini),
-            "qwen" => Ok(ProviderType::Qwen),
             "openai" => Ok(ProviderType::OpenAI),
             "claude" => Ok(ProviderType::Claude),
             "antigravity" => Ok(ProviderType::Antigravity),
@@ -77,7 +71,6 @@ impl std::str::FromStr for ProviderType {
             "gemini_api_key" => Ok(ProviderType::GeminiApiKey),
             "codex" => Ok(ProviderType::Codex),
             "claude_oauth" => Ok(ProviderType::ClaudeOAuth),
-            "iflow" => Ok(ProviderType::IFlow),
             "anthropic" => Ok(ProviderType::Anthropic),
             "azure_openai" | "azure-openai" => Ok(ProviderType::AzureOpenai),
             "aws_bedrock" | "aws-bedrock" => Ok(ProviderType::AwsBedrock),
@@ -110,7 +103,6 @@ mod tests {
             "gemini".parse::<ProviderType>().unwrap(),
             ProviderType::Gemini
         );
-        assert_eq!("qwen".parse::<ProviderType>().unwrap(), ProviderType::Qwen);
         assert_eq!(
             "openai".parse::<ProviderType>().unwrap(),
             ProviderType::OpenAI
@@ -143,7 +135,6 @@ mod tests {
     fn test_provider_type_display() {
         assert_eq!(ProviderType::Kiro.to_string(), "kiro");
         assert_eq!(ProviderType::Gemini.to_string(), "gemini");
-        assert_eq!(ProviderType::Qwen.to_string(), "qwen");
         assert_eq!(ProviderType::OpenAI.to_string(), "openai");
         assert_eq!(ProviderType::Claude.to_string(), "claude");
         assert_eq!(ProviderType::Vertex.to_string(), "vertex");

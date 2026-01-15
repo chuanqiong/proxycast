@@ -118,11 +118,9 @@ const validDateArbitrary = fc
 const oauthProviderTypes: PoolProviderType[] = [
   "kiro",
   "gemini",
-  "qwen",
   "antigravity",
   "codex",
   "claude_oauth",
-  "iflow",
 ];
 
 /**
@@ -131,11 +129,9 @@ const oauthProviderTypes: PoolProviderType[] = [
 const oauthCredentialTypes = [
   "kiro_oauth",
   "gemini_oauth",
-  "qwen_oauth",
   "antigravity_oauth",
   "codex_oauth",
   "claude_oauth",
-  "iflow_oauth",
 ];
 
 /**
@@ -382,8 +378,8 @@ describe("OAuth 凭证卡片边界情况", () => {
   test("完整的 OAuth 凭证应通过完整性检查", () => {
     const credential: CredentialDisplay = {
       uuid: "test-uuid",
-      provider_type: "qwen",
-      credential_type: "qwen_oauth",
+      provider_type: "kiro",
+      credential_type: "kiro_oauth",
       name: "Test Credential",
       display_credential: "test@example.com",
       is_healthy: true,

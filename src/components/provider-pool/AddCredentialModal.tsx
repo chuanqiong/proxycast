@@ -11,8 +11,6 @@ import { providerPoolApi, PoolProviderType } from "@/lib/api/providerPool";
 import { AntigravityForm } from "./credential-forms/AntigravityForm";
 import { CodexForm } from "./credential-forms/CodexForm";
 import { ClaudeOAuthForm } from "./credential-forms/ClaudeOAuthForm";
-import { QwenForm } from "./credential-forms/QwenForm";
-import { IFlowForm } from "./credential-forms/IFlowForm";
 import { GeminiForm } from "./credential-forms/GeminiForm";
 import { KiroForm } from "./credential-forms/KiroForm";
 import { defaultCredsPath, providerLabels } from "./credential-forms/types";
@@ -94,30 +92,6 @@ export function AddCredentialModal({
 
   // Claude OAuth 表单
   const claudeOAuthForm = ClaudeOAuthForm({
-    name,
-    credsFilePath,
-    setCredsFilePath,
-    onSelectFile: handleSelectFile,
-    loading,
-    setLoading,
-    setError,
-    onSuccess,
-  });
-
-  // Qwen 表单
-  const qwenForm = QwenForm({
-    name,
-    credsFilePath,
-    setCredsFilePath,
-    onSelectFile: handleSelectFile,
-    loading,
-    setLoading,
-    setError,
-    onSuccess,
-  });
-
-  // iFlow 表单
-  const iflowForm = IFlowForm({
     name,
     credsFilePath,
     setCredsFilePath,
@@ -435,64 +409,6 @@ export function AddCredentialModal({
       );
     }
 
-    // Qwen 登录模式
-    if (providerType === "qwen" && qwenForm.mode === "login") {
-      if (!qwenForm.deviceCode) {
-        return (
-          <button
-            onClick={qwenForm.handleGetDeviceCode}
-            disabled={loading}
-            className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            {loading ? "获取中..." : "获取设备码"}
-          </button>
-        );
-      }
-      return null;
-    }
-
-    // Qwen 文件模式
-    if (providerType === "qwen" && qwenForm.mode === "file") {
-      return (
-        <button
-          onClick={qwenForm.handleFileSubmit}
-          disabled={loading}
-          className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-        >
-          {loading ? "添加中..." : "添加凭证"}
-        </button>
-      );
-    }
-
-    // iFlow 登录模式
-    if (providerType === "iflow" && iflowForm.mode === "login") {
-      if (!iflowForm.authUrl) {
-        return (
-          <button
-            onClick={iflowForm.handleGetAuthUrl}
-            disabled={loading}
-            className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            {loading ? "获取中..." : "获取授权 URL"}
-          </button>
-        );
-      }
-      return null;
-    }
-
-    // iFlow 文件模式
-    if (providerType === "iflow" && iflowForm.mode === "file") {
-      return (
-        <button
-          onClick={iflowForm.handleFileSubmit}
-          disabled={loading}
-          className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-        >
-          {loading ? "添加中..." : "添加凭证"}
-        </button>
-      );
-    }
-
     // Gemini 登录模式
     if (providerType === "gemini" && geminiForm.mode === "login") {
       if (!geminiForm.authUrl) {
@@ -592,8 +508,6 @@ export function AddCredentialModal({
         {providerType === "antigravity" && antigravityForm.render()}
         {providerType === "codex" && codexForm.render()}
         {providerType === "claude_oauth" && claudeOAuthForm.render()}
-        {providerType === "qwen" && qwenForm.render()}
-        {providerType === "iflow" && iflowForm.render()}
         {providerType === "gemini" && geminiForm.render()}
         {providerType === "kiro" && kiroForm.render()}
         {isSimpleOAuth.includes(providerType) && renderSimpleOAuthForm()}

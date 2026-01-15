@@ -7,7 +7,6 @@
 //! - `config` - 配置管理命令
 //! - `kiro` - Kiro Provider 命令 (legacy)
 //! - `gemini` - Gemini Provider 命令 (legacy)
-//! - `qwen` - Qwen Provider 命令 (legacy)
 //! - `custom_providers` - 自定义 Provider 命令 (OpenAI/Claude Custom)
 //! - `logs` - 日志命令
 //! - `api_test` - API 测试和兼容性检查命令
@@ -18,7 +17,6 @@ mod custom_providers;
 mod gemini;
 mod kiro;
 mod logs;
-mod qwen;
 mod server;
 
 // 重新导出所有命令
@@ -28,5 +26,4 @@ pub use custom_providers::*;
 pub use gemini::*;
 pub use kiro::*;
 pub use logs::*;
-pub use qwen::*;
 pub use server::*;

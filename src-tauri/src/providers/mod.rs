@@ -4,10 +4,8 @@ pub mod claude_oauth;
 pub mod codex;
 pub mod error;
 pub mod gemini;
-pub mod iflow;
 pub mod kiro;
 pub mod openai_custom;
-pub mod qwen;
 pub mod traits;
 pub mod vertex;
 
@@ -35,12 +33,8 @@ pub use error::ProviderError;
 #[allow(unused_imports)]
 pub use gemini::{GeminiApiKeyCredential, GeminiApiKeyProvider, GeminiProvider};
 #[allow(unused_imports)]
-pub use iflow::IFlowProvider;
-#[allow(unused_imports)]
 pub use kiro::KiroProvider;
 #[allow(unused_imports)]
 pub use openai_custom::OpenAICustomProvider;
-#[allow(unused_imports)]
-pub use qwen::QwenProvider;
 #[allow(unused_imports)]
 pub use vertex::VertexProvider;

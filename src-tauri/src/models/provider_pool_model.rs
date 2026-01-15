@@ -40,8 +40,7 @@ pub enum CredentialData {
         creds_file_path: String,
         project_id: Option<String>,
     },
-    /// Qwen OAuth 凭证（文件路径）
-    QwenOAuth { creds_file_path: String },
+
     /// Antigravity OAuth 凭证（文件路径）- Google 内部 Gemini 3 Pro
     AntigravityOAuth {
         creds_file_path: String,
@@ -82,10 +81,7 @@ pub enum CredentialData {
     },
     /// Claude OAuth 凭证（Anthropic OAuth）
     ClaudeOAuth { creds_file_path: String },
-    /// iFlow OAuth 凭证
-    IFlowOAuth { creds_file_path: String },
-    /// iFlow Cookie 凭证
-    IFlowCookie { creds_file_path: String },
+
     /// Anthropic API Key 凭证（直接使用 Anthropic API）
     AnthropicKey {
         api_key: String,
@@ -105,9 +101,7 @@ impl CredentialData {
             } => {
                 format!("Gemini OAuth: {}", mask_path(creds_file_path))
             }
-            CredentialData::QwenOAuth { creds_file_path } => {
-                format!("Qwen OAuth: {}", mask_path(creds_file_path))
-            }
+
             CredentialData::AntigravityOAuth {
                 creds_file_path, ..
             } => {
@@ -133,12 +127,7 @@ impl CredentialData {
             CredentialData::ClaudeOAuth { creds_file_path } => {
                 format!("Claude OAuth: {}", mask_path(creds_file_path))
             }
-            CredentialData::IFlowOAuth { creds_file_path } => {
-                format!("iFlow OAuth: {}", mask_path(creds_file_path))
-            }
-            CredentialData::IFlowCookie { creds_file_path } => {
-                format!("iFlow Cookie: {}", mask_path(creds_file_path))
-            }
+
             CredentialData::AnthropicKey { api_key, .. } => {
                 format!("Anthropic: {}", mask_key(api_key))
             }
@@ -150,7 +139,7 @@ impl CredentialData {
         match self {
             CredentialData::KiroOAuth { .. } => PoolProviderType::Kiro,
             CredentialData::GeminiOAuth { .. } => PoolProviderType::Gemini,
-            CredentialData::QwenOAuth { .. } => PoolProviderType::Qwen,
+
             CredentialData::AntigravityOAuth { .. } => PoolProviderType::Antigravity,
             CredentialData::OpenAIKey { .. } => PoolProviderType::OpenAI,
             CredentialData::ClaudeKey { .. } => PoolProviderType::Claude,
@@ -158,8 +147,7 @@ impl CredentialData {
             CredentialData::GeminiApiKey { .. } => PoolProviderType::GeminiApiKey,
             CredentialData::CodexOAuth { .. } => PoolProviderType::Codex,
             CredentialData::ClaudeOAuth { .. } => PoolProviderType::ClaudeOAuth,
-            CredentialData::IFlowOAuth { .. } => PoolProviderType::IFlow,
-            CredentialData::IFlowCookie { .. } => PoolProviderType::IFlow,
+
             CredentialData::AnthropicKey { .. } => PoolProviderType::Anthropic,
         }
     }
@@ -507,7 +495,6 @@ pub fn get_default_check_model(provider_type: PoolProviderType) -> &'static str 
     match provider_type {
         PoolProviderType::Kiro => "claude-haiku-4-5",
         PoolProviderType::Gemini => "gemini-2.5-flash",
-        PoolProviderType::Qwen => "qwen3-coder-flash",
         PoolProviderType::OpenAI => "gpt-3.5-turbo",
         // 使用 claude-sonnet-4-5-20250929，兼容更多代理服务器
         PoolProviderType::Claude => "claude-sonnet-4-5-20250929",
@@ -516,7 +503,6 @@ pub fn get_default_check_model(provider_type: PoolProviderType) -> &'static str 
         PoolProviderType::GeminiApiKey => "gemini-2.5-flash",
         PoolProviderType::Codex => "gpt-4o-mini",
         PoolProviderType::ClaudeOAuth => "claude-sonnet-4-5-20250929",
-        PoolProviderType::IFlow => "deepseek-chat",
         // API Key Provider 类型
         PoolProviderType::Anthropic => "claude-sonnet-4-5-20250929",
         PoolProviderType::AzureOpenai => "gpt-4o-mini",
@@ -565,7 +551,6 @@ fn get_credential_type(cred: &CredentialData) -> String {
     match cred {
         CredentialData::KiroOAuth { .. } => "kiro_oauth".to_string(),
         CredentialData::GeminiOAuth { .. } => "gemini_oauth".to_string(),
-        CredentialData::QwenOAuth { .. } => "qwen_oauth".to_string(),
         CredentialData::AntigravityOAuth { .. } => "antigravity_oauth".to_string(),
         CredentialData::OpenAIKey { .. } => "openai_key".to_string(),
         CredentialData::ClaudeKey { .. } => "claude_key".to_string(),
@@ -573,8 +558,6 @@ fn get_credential_type(cred: &CredentialData) -> String {
         CredentialData::GeminiApiKey { .. } => "gemini_api_key".to_string(),
         CredentialData::CodexOAuth { .. } => "codex_oauth".to_string(),
         CredentialData::ClaudeOAuth { .. } => "claude_oauth".to_string(),
-        CredentialData::IFlowOAuth { .. } => "iflow_oauth".to_string(),
-        CredentialData::IFlowCookie { .. } => "iflow_cookie".to_string(),
         CredentialData::AnthropicKey { .. } => "anthropic_key".to_string(),
     }
 }
@@ -586,7 +569,6 @@ pub fn get_oauth_creds_path(cred: &CredentialData) -> Option<String> {
         CredentialData::GeminiOAuth {
             creds_file_path, ..
         } => Some(creds_file_path.clone()),
-        CredentialData::QwenOAuth { creds_file_path } => Some(creds_file_path.clone()),
         CredentialData::AntigravityOAuth {
             creds_file_path, ..
         } => Some(creds_file_path.clone()),
@@ -594,8 +576,6 @@ pub fn get_oauth_creds_path(cred: &CredentialData) -> Option<String> {
             creds_file_path, ..
         } => Some(creds_file_path.clone()),
         CredentialData::ClaudeOAuth { creds_file_path } => Some(creds_file_path.clone()),
-        CredentialData::IFlowOAuth { creds_file_path } => Some(creds_file_path.clone()),
-        CredentialData::IFlowCookie { creds_file_path } => Some(creds_file_path.clone()),
         _ => None,
     }
 }

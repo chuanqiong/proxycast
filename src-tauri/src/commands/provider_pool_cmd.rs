@@ -338,11 +338,6 @@ pub fn update_provider_pool_credential(
                 cleanup_credential_file(creds_file_path)?;
                 copy_and_rename_credential_file(&new_file_path, "gemini")?
             }
-            CredentialData::QwenOAuth { creds_file_path } => {
-                // 清理旧文件
-                cleanup_credential_file(creds_file_path)?;
-                copy_and_rename_credential_file(&new_file_path, "qwen")?
-            }
             CredentialData::AntigravityOAuth {
                 creds_file_path, ..
             } => {
@@ -371,9 +366,6 @@ pub fn update_provider_pool_credential(
                 if let Some(new_pid) = request.new_project_id {
                     *project_id = Some(new_pid);
                 }
-            }
-            CredentialData::QwenOAuth { creds_file_path } => {
-                *creds_file_path = new_stored_path;
             }
             CredentialData::AntigravityOAuth {
                 creds_file_path,
@@ -874,29 +866,6 @@ pub fn add_gemini_oauth_credential(
     )
 }
 
-/// 添加 Qwen OAuth 凭证（通过文件路径）
-#[tauri::command]
-pub fn add_qwen_oauth_credential(
-    db: State<'_, DbConnection>,
-    pool_service: State<'_, ProviderPoolServiceState>,
-    creds_file_path: String,
-    name: Option<String>,
-) -> Result<ProviderCredential, String> {
-    // 复制并重命名文件到应用存储目录
-    let stored_file_path = copy_and_rename_credential_file(&creds_file_path, "qwen")?;
-
-    pool_service.0.add_credential(
-        &db,
-        "qwen",
-        CredentialData::QwenOAuth {
-            creds_file_path: stored_file_path,
-        },
-        name,
-        Some(true),
-        None,
-    )
-}
-
 /// 添加 Antigravity OAuth 凭证（通过文件路径）
 #[tauri::command]
 pub fn add_antigravity_oauth_credential(
@@ -1024,52 +993,6 @@ pub fn add_claude_oauth_credential(
         &db,
         "claude_oauth",
         CredentialData::ClaudeOAuth {
-            creds_file_path: stored_file_path,
-        },
-        name,
-        Some(true),
-        None,
-    )
-}
-
-/// 添加 iFlow OAuth 凭证（通过文件路径）
-#[tauri::command]
-pub fn add_iflow_oauth_credential(
-    db: State<'_, DbConnection>,
-    pool_service: State<'_, ProviderPoolServiceState>,
-    creds_file_path: String,
-    name: Option<String>,
-) -> Result<ProviderCredential, String> {
-    // 复制并重命名文件到应用存储目录
-    let stored_file_path = copy_and_rename_credential_file(&creds_file_path, "iflow")?;
-
-    pool_service.0.add_credential(
-        &db,
-        "iflow",
-        CredentialData::IFlowOAuth {
-            creds_file_path: stored_file_path,
-        },
-        name,
-        Some(true),
-        None,
-    )
-}
-
-/// 添加 iFlow Cookie 凭证（通过文件路径）
-#[tauri::command]
-pub fn add_iflow_cookie_credential(
-    db: State<'_, DbConnection>,
-    pool_service: State<'_, ProviderPoolServiceState>,
-    creds_file_path: String,
-    name: Option<String>,
-) -> Result<ProviderCredential, String> {
-    // 复制并重命名文件到应用存储目录
-    let stored_file_path = copy_and_rename_credential_file(&creds_file_path, "iflow_cookie")?;
-
-    pool_service.0.add_credential(
-        &db,
-        "iflow",
-        CredentialData::IFlowCookie {
             creds_file_path: stored_file_path,
         },
         name,
@@ -1736,212 +1659,7 @@ pub async fn claude_oauth_with_cookie(
     Ok(credential)
 }
 
-/// Qwen Device Code 响应
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct QwenDeviceCodeResponse {
-    pub user_code: String,
-    pub verification_uri: String,
-    pub verification_uri_complete: Option<String>,
-    pub expires_in: i64,
-}
-
-/// 获取 Qwen Device Code 并等待用户授权
 ///
-/// 启动 Device Code Flow 后通过事件发送设备码信息，然后轮询等待授权
-/// 成功后返回凭证
-#[tauri::command]
-pub async fn get_qwen_device_code_and_wait(
-    app: tauri::AppHandle,
-    db: State<'_, DbConnection>,
-    pool_service: State<'_, ProviderPoolServiceState>,
-    name: Option<String>,
-) -> Result<ProviderCredential, String> {
-    use crate::providers::qwen;
-
-    tracing::info!("[Qwen] 启动 Device Code Flow");
-
-    // 启动 Device Code Flow 并获取设备码信息
-    let (device_response, wait_future) = qwen::start_qwen_device_code_and_get_info()
-        .await
-        .map_err(|e| format!("启动 Device Code Flow 失败: {}", e))?;
-
-    tracing::info!(
-        "[Qwen] Device Code: user_code={}, verification_uri={}",
-        device_response.user_code,
-        device_response.verification_uri
-    );
-
-    // 通过事件发送设备码信息给前端
-    let _ = app.emit(
-        "qwen-device-code",
-        QwenDeviceCodeResponse {
-            user_code: device_response.user_code.clone(),
-            verification_uri: device_response.verification_uri.clone(),
-            verification_uri_complete: device_response.verification_uri_complete.clone(),
-            expires_in: device_response.expires_in,
-        },
-    );
-
-    // 等待用户授权
-    let result = wait_future.await.map_err(|e| e.to_string())?;
-
-    tracing::info!("[Qwen] 登录成功，凭证保存到: {}", result.creds_file_path);
-
-    // 添加到凭证池
-    let credential = pool_service.0.add_credential(
-        &db,
-        "qwen",
-        CredentialData::QwenOAuth {
-            creds_file_path: result.creds_file_path,
-        },
-        name,
-        Some(true),
-        None,
-    )?;
-
-    tracing::info!("[Qwen] 凭证已添加到凭证池: {}", credential.uuid);
-
-    Ok(credential)
-}
-
-/// 启动 Qwen Device Code Flow 登录流程
-///
-/// 自动打开浏览器让用户完成授权
-#[tauri::command]
-pub async fn start_qwen_device_code_login(
-    db: State<'_, DbConnection>,
-    pool_service: State<'_, ProviderPoolServiceState>,
-    name: Option<String>,
-) -> Result<ProviderCredential, String> {
-    use crate::providers::qwen;
-
-    tracing::info!("[Qwen] 开始 Device Code Flow 登录流程");
-
-    // 启动 Device Code Flow 登录
-    let result = qwen::start_qwen_device_code_login()
-        .await
-        .map_err(|e| format!("Qwen Device Code Flow 登录失败: {}", e))?;
-
-    tracing::info!("[Qwen] 登录成功，凭证保存到: {}", result.creds_file_path);
-
-    // 添加到凭证池
-    let credential = pool_service.0.add_credential(
-        &db,
-        "qwen",
-        CredentialData::QwenOAuth {
-            creds_file_path: result.creds_file_path,
-        },
-        name,
-        Some(true),
-        None,
-    )?;
-
-    tracing::info!("[Qwen] 凭证已添加到凭证池: {}", credential.uuid);
-
-    Ok(credential)
-}
-
-/// iFlow OAuth 授权 URL 响应
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct IFlowAuthUrlResponse {
-    pub auth_url: String,
-}
-
-/// 获取 iFlow OAuth 授权 URL 并等待回调（不自动打开浏览器）
-///
-/// 启动服务器后通过事件发送授权 URL，然后等待回调
-/// 成功后返回凭证
-#[tauri::command]
-pub async fn get_iflow_auth_url_and_wait(
-    app: tauri::AppHandle,
-    db: State<'_, DbConnection>,
-    pool_service: State<'_, ProviderPoolServiceState>,
-    name: Option<String>,
-) -> Result<ProviderCredential, String> {
-    use crate::providers::iflow;
-
-    tracing::info!("[iFlow OAuth] 启动服务器并获取授权 URL");
-
-    // 启动服务器并获取授权 URL
-    let (auth_url, wait_future) = iflow::start_iflow_oauth_server_and_get_url()
-        .await
-        .map_err(|e| format!("启动 OAuth 服务器失败: {}", e))?;
-
-    tracing::info!("[iFlow OAuth] 授权 URL: {}", auth_url);
-
-    // 通过事件发送授权 URL 给前端
-    let _ = app.emit(
-        "iflow-auth-url",
-        IFlowAuthUrlResponse {
-            auth_url: auth_url.clone(),
-        },
-    );
-
-    // 等待回调
-    let result = wait_future.await.map_err(|e| e.to_string())?;
-
-    tracing::info!(
-        "[iFlow OAuth] 登录成功，凭证保存到: {}",
-        result.creds_file_path
-    );
-
-    // 添加到凭证池
-    let credential = pool_service.0.add_credential(
-        &db,
-        "iflow",
-        CredentialData::IFlowOAuth {
-            creds_file_path: result.creds_file_path,
-        },
-        name,
-        Some(true),
-        None,
-    )?;
-
-    tracing::info!("[iFlow OAuth] 凭证已添加到凭证池: {}", credential.uuid);
-
-    Ok(credential)
-}
-
-/// 启动 iFlow OAuth 登录流程
-///
-/// 打开浏览器让用户登录 iFlow 账号，获取凭证
-#[tauri::command]
-pub async fn start_iflow_oauth_login(
-    db: State<'_, DbConnection>,
-    pool_service: State<'_, ProviderPoolServiceState>,
-    name: Option<String>,
-) -> Result<ProviderCredential, String> {
-    use crate::providers::iflow;
-
-    tracing::info!("[iFlow OAuth] 开始 OAuth 登录流程");
-
-    // 启动 OAuth 登录
-    let result = iflow::start_iflow_oauth_login()
-        .await
-        .map_err(|e| format!("iFlow OAuth 登录失败: {}", e))?;
-
-    tracing::info!(
-        "[iFlow OAuth] 登录成功，凭证保存到: {}",
-        result.creds_file_path
-    );
-
-    // 添加到凭证池
-    let credential = pool_service.0.add_credential(
-        &db,
-        "iflow",
-        CredentialData::IFlowOAuth {
-            creds_file_path: result.creds_file_path,
-        },
-        name,
-        Some(true),
-        None,
-    )?;
-
-    tracing::info!("[iFlow OAuth] 凭证已添加到凭证池: {}", credential.uuid);
-
-    Ok(credential)
-}
-
 /// 获取 Kiro 凭证的 Machine ID 指纹信息
 ///
 /// 返回凭证的唯一设备指纹，用于在 UI 中展示

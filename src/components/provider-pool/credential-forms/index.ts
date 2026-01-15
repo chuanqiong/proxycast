@@ -9,8 +9,6 @@ export * from "./FileImportForm";
 export * from "./AntigravityForm";
 export * from "./CodexForm";
 export * from "./ClaudeOAuthForm";
-export * from "./QwenForm";
-export * from "./IFlowForm";
 export * from "./GeminiForm";
 export * from "./BrowserModeSelector";
 export * from "./PlaywrightInstallGuide";

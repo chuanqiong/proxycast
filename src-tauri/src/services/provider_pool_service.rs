@@ -348,7 +348,7 @@ impl ProviderPoolService {
     /// # 参数
     /// - `db`: 数据库连接
     /// - `api_key_service`: API Key Provider 服务
-    /// - `provider_type`: Provider 类型字符串，如 "claude", "openai", "qwen"
+    /// - `provider_type`: Provider 类型字符串，如 "claude", "openai"
     /// - `model`: 可选的模型名称
     /// - `provider_id_hint`: 可选的 provider_id 提示，用于 60+ Provider 直接查找
     ///
@@ -926,9 +926,6 @@ impl ProviderPoolService {
                 self.check_gemini_health(creds_file_path, project_id.as_deref(), model)
                     .await
             }
-            CredentialData::QwenOAuth { creds_file_path } => {
-                self.check_qwen_health(creds_file_path, model).await
-            }
             CredentialData::AntigravityOAuth {
                 creds_file_path,
                 project_id,
@@ -965,12 +962,6 @@ impl ProviderPoolService {
             }
             CredentialData::ClaudeOAuth { creds_file_path } => {
                 self.check_claude_oauth_health(creds_file_path, model).await
-            }
-            CredentialData::IFlowOAuth { creds_file_path } => {
-                self.check_iflow_oauth_health(creds_file_path, model).await
-            }
-            CredentialData::IFlowCookie { creds_file_path } => {
-                self.check_iflow_cookie_health(creds_file_path, model).await
             }
             CredentialData::AnthropicKey { api_key, base_url } => {
                 // Anthropic API Key 使用与 Claude API Key 相同的健康检查逻辑
@@ -1143,55 +1134,6 @@ impl ProviderPoolService {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
             Err(format!("HTTP {} - {}", status, body))
-        }
-    }
-
-    // Qwen OAuth 健康检查
-    async fn check_qwen_health(&self, creds_path: &str, model: &str) -> Result<(), String> {
-        let creds_content =
-            std::fs::read_to_string(creds_path).map_err(|e| format!("读取凭证文件失败: {}", e))?;
-        let creds: serde_json::Value =
-            serde_json::from_str(&creds_content).map_err(|e| format!("解析凭证失败: {}", e))?;
-
-        let access_token = creds["access_token"]
-            .as_str()
-            .ok_or_else(|| "凭证中缺少 access_token".to_string())?;
-
-        // 获取 base_url，优先使用 resource_url，否则使用默认值
-        let base_url = if let Some(resource_url) = creds["resource_url"].as_str() {
-            if resource_url.starts_with("http") {
-                format!("{}/v1", resource_url.trim_end_matches('/'))
-            } else {
-                format!("https://{}/v1", resource_url)
-            }
-        } else {
-            "https://portal.qwen.ai/v1".to_string()
-        };
-
-        let request_body = serde_json::json!({
-            "model": model,
-            "messages": [{"role": "user", "content": "Say OK"}],
-            "max_tokens": 10
-        });
-
-        let url = format!("{}/chat/completions", base_url);
-
-        let response = self
-            .client
-            .post(&url)
-            .bearer_auth(access_token)
-            .header("Content-Type", "application/json")
-            .header("Accept", "application/json")
-            .json(&request_body)
-            .timeout(self.health_check_timeout)
-            .send()
-            .await
-            .map_err(|e| format!("请求失败: {}", e))?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(format!("HTTP {}", response.status()))
         }
     }
 
@@ -1550,87 +1492,6 @@ impl ProviderPoolService {
         }
     }
 
-    // iFlow OAuth 健康检查
-    async fn check_iflow_oauth_health(&self, creds_path: &str, model: &str) -> Result<(), String> {
-        use crate::providers::iflow::IFlowProvider;
-
-        let mut provider = IFlowProvider::new();
-        provider
-            .load_credentials_from_path(creds_path)
-            .await
-            .map_err(|e| format!("加载 iFlow OAuth 凭证失败: {}", e))?;
-
-        let token = provider
-            .ensure_valid_token()
-            .await
-            .map_err(|e| format!("获取 iFlow OAuth Token 失败: {}", e))?;
-
-        // 使用 iFlow API 进行健康检查
-        let url = "https://iflow.cn/api/v1/chat/completions";
-        let request_body = serde_json::json!({
-            "model": model,
-            "messages": [{"role": "user", "content": "Say OK"}],
-            "max_tokens": 10
-        });
-
-        let response = self
-            .client
-            .post(url)
-            .header("Authorization", format!("Bearer {}", token))
-            .json(&request_body)
-            .timeout(self.health_check_timeout)
-            .send()
-            .await
-            .map_err(|e| format!("请求失败: {}", e))?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(format!("HTTP {}", response.status()))
-        }
-    }
-
-    // iFlow Cookie 健康检查
-    async fn check_iflow_cookie_health(&self, creds_path: &str, model: &str) -> Result<(), String> {
-        use crate::providers::iflow::IFlowProvider;
-
-        let mut provider = IFlowProvider::new();
-        provider
-            .load_credentials_from_path(creds_path)
-            .await
-            .map_err(|e| format!("加载 iFlow Cookie 凭证失败: {}", e))?;
-
-        let api_key = provider
-            .credentials
-            .api_key
-            .as_ref()
-            .ok_or_else(|| "iFlow Cookie 凭证中没有 API Key".to_string())?;
-
-        // 使用 iFlow API 进行健康检查
-        let url = "https://iflow.cn/api/v1/chat/completions";
-        let request_body = serde_json::json!({
-            "model": model,
-            "messages": [{"role": "user", "content": "Say OK"}],
-            "max_tokens": 10
-        });
-
-        let response = self
-            .client
-            .post(url)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .json(&request_body)
-            .timeout(self.health_check_timeout)
-            .send()
-            .await
-            .map_err(|e| format!("请求失败: {}", e))?;
-
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(format!("HTTP {}", response.status()))
-        }
-    }
-
     /// 根据名称获取凭证
     pub fn get_by_name(
         &self,
@@ -1742,19 +1603,7 @@ impl ProviderPoolService {
                 // Kiro 没有标准的过期时间字段，假设有 access_token 就有效
                 (has_access_token, expires_at)
             }
-            "gemini" | "qwen" => {
-                let expiry = creds.get("expiry_date").and_then(|v| v.as_i64());
-                if let Some(exp) = expiry {
-                    let now = chrono::Utc::now().timestamp();
-                    let is_valid = exp > now;
-                    let expiry_str = chrono::DateTime::from_timestamp(exp, 0)
-                        .map(|dt| dt.to_rfc3339())
-                        .unwrap_or_else(|| exp.to_string());
-                    (is_valid, Some(expiry_str))
-                } else {
-                    (has_access_token, None)
-                }
-            }
+
             "codex" => {
                 // Codex: 兼容 OAuth token 或 Codex CLI 的 API Key 登录
                 if has_api_key {
@@ -1813,19 +1662,6 @@ impl ProviderPoolService {
             .map_err(|e| format!("刷新 Token 失败: {}", e))
     }
 
-    /// 刷新 OAuth Token (Qwen)
-    pub async fn refresh_qwen_token(&self, creds_path: &str) -> Result<String, String> {
-        let mut provider = crate::providers::qwen::QwenProvider::new();
-        provider
-            .load_credentials_from_path(creds_path)
-            .await
-            .map_err(|e| format!("加载凭证失败: {}", e))?;
-        provider
-            .refresh_token()
-            .await
-            .map_err(|e| format!("刷新 Token 失败: {}", e))
-    }
-
     /// 刷新 OAuth Token (Antigravity)
     pub async fn refresh_antigravity_token(&self, creds_path: &str) -> Result<String, String> {
         let mut provider = crate::providers::antigravity::AntigravityProvider::new();
@@ -1859,9 +1695,6 @@ impl ProviderPoolService {
             CredentialData::GeminiOAuth {
                 creds_file_path, ..
             } => self.refresh_gemini_token(creds_file_path).await,
-            CredentialData::QwenOAuth { creds_file_path } => {
-                self.refresh_qwen_token(creds_file_path).await
-            }
             CredentialData::AntigravityOAuth {
                 creds_file_path, ..
             } => self.refresh_antigravity_token(creds_file_path).await,
@@ -1975,34 +1808,6 @@ impl ProviderPoolService {
                         ) {
                             Ok(_) => result.migrated_count += 1,
                             Err(e) => result.errors.push(format!("Gemini: {}", e)),
-                        }
-                    } else {
-                        result.skipped_count += 1;
-                    }
-                }
-            }
-        }
-
-        // 迁移 Qwen 凭证
-        if config.providers.qwen.enabled {
-            if let Some(creds_path) = &config.providers.qwen.credentials_path {
-                let expanded_path = expand_tilde(creds_path);
-                let expanded_path_str = expanded_path.to_string_lossy().to_string();
-                if expanded_path.exists() {
-                    if !self.credential_exists_by_path(db, &expanded_path_str)? {
-                        match self.add_credential_with_source(
-                            db,
-                            "qwen",
-                            CredentialData::QwenOAuth {
-                                creds_file_path: expanded_path_str.clone(),
-                            },
-                            Some("Private Qwen".to_string()),
-                            Some(true),
-                            None,
-                            CredentialSource::Private,
-                        ) {
-                            Ok(_) => result.migrated_count += 1,
-                            Err(e) => result.errors.push(format!("Qwen: {}", e)),
                         }
                     } else {
                         result.skipped_count += 1;

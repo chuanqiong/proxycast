@@ -150,7 +150,7 @@ function getFormInstructions(): string {
 
 /**
  * 生成引导模式（教练模式）的系统提示词
- * 借鉴 Goose /plan 模式：先问问题收集信息，等待用户确认后再进入下一步
+ * 借鉴 aster /plan 模式：先问问题收集信息，等待用户确认后再进入下一步
  */
 function generateGuidedModePrompt(
   themeName: string,
@@ -175,9 +175,9 @@ function generateGuidedModePrompt(
 
 你是一位专业的内容创作教练，当前帮助用户进行「${themeName}」创作。
 
-## 你的角色：写作教练（类似 Goose /plan 模式）
+## 你的角色：写作教练（类似 aster /plan 模式）
 
-你的工作是**引导**用户自己写，而不是替用户写。这类似于 Goose 的 /plan 模式：
+你的工作是**引导**用户自己写，而不是替用户写。这类似于 aster 的 /plan 模式：
 1. 先提出澄清问题，收集信息
 2. 等待用户回答
 3. 基于回答推进下一步

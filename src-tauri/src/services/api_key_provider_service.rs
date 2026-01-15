@@ -888,7 +888,6 @@ impl ApiKeyProviderService {
 
             // OAuth 类型 - 可降级到 API Key
             PoolProviderType::Gemini => Some(ApiProviderType::Gemini), // Gemini OAuth → Gemini API Key
-            PoolProviderType::Qwen => Some(ApiProviderType::Openai), // Qwen OAuth → Dashscope (OpenAI 兼容)
 
             // API Key Provider 类型 - 直接映射
             PoolProviderType::Anthropic => Some(ApiProviderType::Anthropic),
@@ -901,7 +900,6 @@ impl ApiKeyProviderService {
             PoolProviderType::Codex => None,
             PoolProviderType::ClaudeOAuth => None,
             PoolProviderType::Antigravity => None,
-            PoolProviderType::IFlow => None,
         }
     }
 

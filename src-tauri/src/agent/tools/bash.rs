@@ -224,7 +224,7 @@ impl BashTool {
         let mut env = HashMap::new();
 
         // 标记为非交互终端
-        env.insert("GOOSE_TERMINAL".to_string(), "1".to_string());
+        env.insert("aster_TERMINAL".to_string(), "1".to_string());
 
         // 禁用 Git 交互提示
         env.insert("GIT_TERMINAL_PROMPT".to_string(), "0".to_string());
@@ -522,7 +522,7 @@ mod tests {
         let env = BashTool::get_non_interactive_env();
 
         // 检查关键环境变量
-        assert_eq!(env.get("GOOSE_TERMINAL"), Some(&"1".to_string()));
+        assert_eq!(env.get("aster_TERMINAL"), Some(&"1".to_string()));
         assert_eq!(env.get("GIT_TERMINAL_PROMPT"), Some(&"0".to_string()));
         assert_eq!(env.get("CI"), Some(&"true".to_string()));
     }
@@ -902,25 +902,25 @@ mod proptests {
         /// **Feature: agent-tool-calling, Property 5: Bash 环境变量设置**
         /// **Validates: Requirements 3.4, 8.4**
         ///
-        /// *For any* Bash 命令执行，执行环境应该包含 GOOSE_TERMINAL、GIT_TERMINAL_PROMPT=0 等
+        /// *For any* Bash 命令执行，执行环境应该包含 aster_TERMINAL、GIT_TERMINAL_PROMPT=0 等
         /// 防止交互的环境变量。
         #[test]
-        fn prop_bash_env_goose_terminal_set(_dummy in 0..100u32) {
+        fn prop_bash_env_aster_terminal_set(_dummy in 0..100u32) {
             let rt = tokio::runtime::Runtime::new().unwrap();
             rt.block_on(async {
                 let temp_dir = TempDir::new().unwrap();
                 let security = Arc::new(SecurityManager::new(temp_dir.path()));
                 let tool = BashTool::new(security);
 
-                // 检查 GOOSE_TERMINAL 环境变量
-                let result = tool.execute_command("echo $GOOSE_TERMINAL", None, None).await;
+                // 检查 aster_TERMINAL 环境变量
+                let result = tool.execute_command("echo $aster_TERMINAL", None, None).await;
 
                 prop_assert!(result.is_ok(), "命令执行应该成功");
                 let result = result.unwrap();
 
                 prop_assert!(
                     result.stdout.trim() == "1",
-                    "GOOSE_TERMINAL 应该设置为 1，实际值: '{}'",
+                    "aster_TERMINAL 应该设置为 1，实际值: '{}'",
                     result.stdout.trim()
                 );
 
@@ -1026,7 +1026,7 @@ mod proptests {
 
                 // 检查多个环境变量
                 let result = tool.execute_command(
-                    "echo \"GOOSE=$GOOSE_TERMINAL,GIT=$GIT_TERMINAL_PROMPT,CI=$CI,PAGER=$PAGER\"",
+                    "echo \"aster=$aster_TERMINAL,GIT=$GIT_TERMINAL_PROMPT,CI=$CI,PAGER=$PAGER\"",
                     None,
                     None
                 ).await;
@@ -1037,8 +1037,8 @@ mod proptests {
 
                 // 验证所有关键变量
                 prop_assert!(
-                    output.contains("GOOSE=1"),
-                    "GOOSE_TERMINAL 应该为 1，输出: '{}'",
+                    output.contains("aster=1"),
+                    "aster_TERMINAL 应该为 1，输出: '{}'",
                     output
                 );
                 prop_assert!(

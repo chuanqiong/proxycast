@@ -15,7 +15,6 @@ use crate::models::provider_pool_model::{
 };
 use crate::providers::gemini::GeminiProvider;
 use crate::providers::kiro::KiroProvider;
-use crate::providers::qwen::QwenProvider;
 use crate::services::kiro_event_service::KiroEventService;
 use chrono::Utc;
 use dashmap::DashMap;
@@ -432,9 +431,6 @@ impl TokenCacheService {
             CredentialData::GeminiOAuth {
                 creds_file_path, ..
             } => self.refresh_gemini(creds_file_path).await,
-            CredentialData::QwenOAuth { creds_file_path } => {
-                self.refresh_qwen(creds_file_path).await
-            }
             CredentialData::AntigravityOAuth {
                 creds_file_path, ..
             } => self.refresh_antigravity(creds_file_path).await,
@@ -487,12 +483,6 @@ impl TokenCacheService {
             } => self.refresh_codex(creds_file_path).await,
             CredentialData::ClaudeOAuth { creds_file_path } => {
                 self.refresh_claude_oauth(creds_file_path).await
-            }
-            CredentialData::IFlowOAuth { creds_file_path } => {
-                self.refresh_iflow_oauth(creds_file_path).await
-            }
-            CredentialData::IFlowCookie { creds_file_path } => {
-                self.refresh_iflow_cookie(creds_file_path).await
             }
             CredentialData::AnthropicKey { api_key, .. } => {
                 // API Key 不需要刷新，直接返回
@@ -548,36 +538,6 @@ impl TokenCacheService {
             .map_err(|e| format!("刷新 Gemini Token 失败: {}", e))?;
 
         // Gemini token 通常 1 小时过期
-        let expiry_time = provider
-            .credentials
-            .expiry_date
-            .map(|ts| chrono::DateTime::from_timestamp(ts, 0).unwrap_or_default())
-            .unwrap_or_else(|| Utc::now() + chrono::Duration::minutes(50));
-
-        Ok(CachedTokenInfo {
-            access_token: Some(token),
-            refresh_token: provider.credentials.refresh_token.clone(),
-            expiry_time: Some(expiry_time),
-            last_refresh: Some(Utc::now()),
-            refresh_error_count: 0,
-            last_refresh_error: None,
-        })
-    }
-
-    /// 刷新 Qwen Token
-    async fn refresh_qwen(&self, creds_path: &str) -> Result<CachedTokenInfo, String> {
-        let mut provider = QwenProvider::new();
-        provider
-            .load_credentials_from_path(creds_path)
-            .await
-            .map_err(|e| format!("加载 Qwen 凭证失败: {}", e))?;
-
-        let token = provider
-            .refresh_token()
-            .await
-            .map_err(|e| format!("刷新 Qwen Token 失败: {}", e))?;
-
-        // Qwen token 通常 1 小时过期
         let expiry_time = provider
             .credentials
             .expiry_date
@@ -694,126 +654,6 @@ impl TokenCacheService {
         })
     }
 
-    /// 刷新 iFlow OAuth Token
-    async fn refresh_iflow_oauth(&self, creds_path: &str) -> Result<CachedTokenInfo, String> {
-        use crate::providers::iflow::IFlowProvider;
-
-        let mut provider = IFlowProvider::new();
-        provider
-            .load_credentials_from_path(creds_path)
-            .await
-            .map_err(|e| format!("加载 iFlow OAuth 凭证失败: {}", e))?;
-
-        let token = provider
-            .refresh_token_with_retry(3)
-            .await
-            .map_err(|e| format!("刷新 iFlow OAuth Token 失败: {}", e))?;
-
-        // 解析过期时间
-        let expiry_time = provider
-            .credentials
-            .expire
-            .as_ref()
-            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-            .map(|dt| dt.with_timezone(&Utc))
-            .unwrap_or_else(|| Utc::now() + chrono::Duration::minutes(50));
-
-        Ok(CachedTokenInfo {
-            access_token: Some(token),
-            refresh_token: provider.credentials.refresh_token.clone(),
-            expiry_time: Some(expiry_time),
-            last_refresh: Some(Utc::now()),
-            refresh_error_count: 0,
-            last_refresh_error: None,
-        })
-    }
-
-    /// 刷新 iFlow Cookie Token
-    /// 与 CLIProxyAPI 的 refreshCookieBased 对齐
-    async fn refresh_iflow_cookie(&self, creds_path: &str) -> Result<CachedTokenInfo, String> {
-        use crate::providers::iflow::IFlowProvider;
-
-        let mut provider = IFlowProvider::new();
-        provider
-            .load_credentials_from_path(creds_path)
-            .await
-            .map_err(|e| format!("加载 iFlow Cookie 凭证失败: {}", e))?;
-
-        // 检查是否需要刷新 API Key（距离过期 2 天内）
-        if provider.should_refresh_api_key() {
-            tracing::info!("[IFLOW] Cookie API Key 需要刷新");
-
-            // 通过 Cookie 刷新 API Key
-            let api_key = provider
-                .refresh_api_key_with_cookie()
-                .await
-                .map_err(|e| format!("刷新 iFlow Cookie API Key 失败: {}", e))?;
-
-            // 解析新的过期时间
-            let expiry_time = provider
-                .credentials
-                .expire
-                .as_ref()
-                .and_then(|s| {
-                    // 尝试解析 "2006-01-02 15:04" 格式
-                    chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M")
-                        .ok()
-                        .map(|dt| dt.and_utc())
-                        .or_else(|| {
-                            // 尝试解析 RFC3339 格式
-                            chrono::DateTime::parse_from_rfc3339(s)
-                                .ok()
-                                .map(|dt| dt.with_timezone(&Utc))
-                        })
-                })
-                .unwrap_or_else(|| Utc::now() + chrono::Duration::days(30));
-
-            return Ok(CachedTokenInfo {
-                access_token: Some(api_key),
-                refresh_token: None,
-                expiry_time: Some(expiry_time),
-                last_refresh: Some(Utc::now()),
-                refresh_error_count: 0,
-                last_refresh_error: None,
-            });
-        }
-
-        // 不需要刷新，直接返回现有的 API Key
-        let api_key = provider
-            .credentials
-            .api_key
-            .clone()
-            .ok_or_else(|| "iFlow Cookie 凭证中没有 API Key".to_string())?;
-
-        // 解析过期时间
-        let expiry_time = provider
-            .credentials
-            .expire
-            .as_ref()
-            .and_then(|s| {
-                // 尝试解析 "2006-01-02 15:04" 格式
-                chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M")
-                    .ok()
-                    .map(|dt| dt.and_utc())
-                    .or_else(|| {
-                        // 尝试解析 RFC3339 格式
-                        chrono::DateTime::parse_from_rfc3339(s)
-                            .ok()
-                            .map(|dt| dt.with_timezone(&Utc))
-                    })
-            })
-            .unwrap_or_else(|| Utc::now() + chrono::Duration::days(30));
-
-        Ok(CachedTokenInfo {
-            access_token: Some(api_key),
-            refresh_token: None,
-            expiry_time: Some(expiry_time),
-            last_refresh: Some(Utc::now()),
-            refresh_error_count: 0,
-            last_refresh_error: None,
-        })
-    }
-
     /// 从源文件加载初始 Token（首次使用时）
     pub async fn load_initial_token(
         &self,
@@ -879,28 +719,6 @@ impl TokenCacheService {
                 let content = tokio::fs::read_to_string(creds_file_path)
                     .await
                     .map_err(|e| format!("读取 Gemini 凭证文件失败: {}", e))?;
-                let creds: serde_json::Value =
-                    serde_json::from_str(&content).map_err(|e| format!("解析凭证失败: {}", e))?;
-
-                let access_token = creds["access_token"].as_str().map(|s| s.to_string());
-                let refresh_token = creds["refresh_token"].as_str().map(|s| s.to_string());
-                let expiry_time = creds["expiry_date"]
-                    .as_i64()
-                    .and_then(|ts| chrono::DateTime::from_timestamp(ts, 0));
-
-                Ok(CachedTokenInfo {
-                    access_token,
-                    refresh_token,
-                    expiry_time,
-                    last_refresh: None,
-                    refresh_error_count: 0,
-                    last_refresh_error: None,
-                })
-            }
-            CredentialData::QwenOAuth { creds_file_path } => {
-                let content = tokio::fs::read_to_string(creds_file_path)
-                    .await
-                    .map_err(|e| format!("读取 Qwen 凭证文件失败: {}", e))?;
                 let creds: serde_json::Value =
                     serde_json::from_str(&content).map_err(|e| format!("解析凭证失败: {}", e))?;
 
@@ -1023,51 +841,6 @@ impl TokenCacheService {
                     last_refresh_error: None,
                 })
             }
-            CredentialData::IFlowOAuth { creds_file_path } => {
-                let content = tokio::fs::read_to_string(creds_file_path)
-                    .await
-                    .map_err(|e| format!("读取 iFlow OAuth 凭证文件失败: {}", e))?;
-                let creds: serde_json::Value =
-                    serde_json::from_str(&content).map_err(|e| format!("解析凭证失败: {}", e))?;
-
-                let access_token = creds["access_token"].as_str().map(|s| s.to_string());
-                let refresh_token = creds["refresh_token"].as_str().map(|s| s.to_string());
-                let expiry_time = creds["expire"]
-                    .as_str()
-                    .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-                    .map(|dt| dt.with_timezone(&Utc));
-
-                Ok(CachedTokenInfo {
-                    access_token,
-                    refresh_token,
-                    expiry_time,
-                    last_refresh: None,
-                    refresh_error_count: 0,
-                    last_refresh_error: None,
-                })
-            }
-            CredentialData::IFlowCookie { creds_file_path } => {
-                let content = tokio::fs::read_to_string(creds_file_path)
-                    .await
-                    .map_err(|e| format!("读取 iFlow Cookie 凭证文件失败: {}", e))?;
-                let creds: serde_json::Value =
-                    serde_json::from_str(&content).map_err(|e| format!("解析凭证失败: {}", e))?;
-
-                let api_key = creds["api_key"].as_str().map(|s| s.to_string());
-                let expiry_time = creds["expire"]
-                    .as_str()
-                    .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-                    .map(|dt| dt.with_timezone(&Utc));
-
-                Ok(CachedTokenInfo {
-                    access_token: api_key,
-                    refresh_token: None,
-                    expiry_time,
-                    last_refresh: None,
-                    refresh_error_count: 0,
-                    last_refresh_error: None,
-                })
-            }
             CredentialData::AnthropicKey { api_key, .. } => Ok(CachedTokenInfo {
                 access_token: Some(api_key.clone()),
                 refresh_token: None,
@@ -1089,7 +862,7 @@ impl TokenCacheService {
     pub fn supports_refresh(provider_type: PoolProviderType) -> bool {
         matches!(
             provider_type,
-            PoolProviderType::Kiro | PoolProviderType::Gemini | PoolProviderType::Qwen
+            PoolProviderType::Kiro | PoolProviderType::Gemini
         )
     }
 
