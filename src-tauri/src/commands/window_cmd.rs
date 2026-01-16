@@ -22,14 +22,6 @@ impl WindowSize {
         }
     }
 
-    /// Flow Monitor 优化大小（更宽更高，适合数据展示）
-    pub fn flow_monitor() -> Self {
-        Self {
-            width: 1600,
-            height: 1000,
-        }
-    }
-
     /// 紧凑模式
     pub fn compact() -> Self {
         Self {
@@ -51,22 +43,6 @@ impl WindowSize {
         Self {
             width: 2560,
             height: 1440,
-        }
-    }
-
-    /// 4K 模式
-    pub fn ultra_wide() -> Self {
-        Self {
-            width: 3440,
-            height: 1440,
-        }
-    }
-
-    /// 4K 标准模式
-    pub fn four_k() -> Self {
-        Self {
-            width: 3840,
-            height: 2160,
         }
     }
 }
@@ -97,12 +73,6 @@ impl WindowSizeOption {
                 size: WindowSize::default(),
             },
             Self {
-                id: "flow_monitor".to_string(),
-                name: "Flow Monitor".to_string(),
-                description: "1600×1000 - 数据展示优化".to_string(),
-                size: WindowSize::flow_monitor(),
-            },
-            Self {
                 id: "large".to_string(),
                 name: "大屏模式".to_string(),
                 description: "1920×1200 - 大屏幕显示".to_string(),
@@ -113,18 +83,6 @@ impl WindowSizeOption {
                 name: "超大屏模式".to_string(),
                 description: "2560×1440 - 超大屏幕".to_string(),
                 size: WindowSize::extra_large(),
-            },
-            Self {
-                id: "ultra_wide".to_string(),
-                name: "超宽屏模式".to_string(),
-                description: "3440×1440 - 超宽屏显示".to_string(),
-                size: WindowSize::ultra_wide(),
-            },
-            Self {
-                id: "four_k".to_string(),
-                name: "4K 模式".to_string(),
-                description: "3840×2160 - 4K 显示器".to_string(),
-                size: WindowSize::four_k(),
             },
         ]
     }
@@ -256,26 +214,6 @@ pub async fn set_window_size(app: AppHandle, size: WindowSize) -> Result<(), Str
     Ok(())
 }
 
-/// 切换到 Flow Monitor 优化大小
-///
-/// # Arguments
-/// * `app` - Tauri AppHandle
-///
-/// # Returns
-/// * `Ok(WindowSize)` - 成功时返回之前的窗口大小
-/// * `Err(String)` - 失败时返回错误消息
-#[tauri::command]
-pub async fn resize_for_flow_monitor(app: AppHandle) -> Result<WindowSize, String> {
-    // 先获取当前大小，用于恢复
-    let current_size = get_window_size(app.clone()).await?;
-
-    // 设置为 Flow Monitor 优化大小
-    let flow_monitor_size = WindowSize::flow_monitor();
-    set_window_size(app, flow_monitor_size).await?;
-
-    Ok(current_size)
-}
-
 /// 恢复窗口到指定大小
 ///
 /// # Arguments
@@ -288,36 +226,6 @@ pub async fn resize_for_flow_monitor(app: AppHandle) -> Result<WindowSize, Strin
 #[tauri::command]
 pub async fn restore_window_size(app: AppHandle, size: WindowSize) -> Result<(), String> {
     set_window_size(app, size).await
-}
-
-/// 切换窗口大小（在默认大小和 Flow Monitor 大小之间切换）
-///
-/// # Arguments
-/// * `app` - Tauri AppHandle
-///
-/// # Returns
-/// * `Ok(bool)` - 成功时返回是否切换到了 Flow Monitor 大小
-/// * `Err(String)` - 失败时返回错误消息
-#[tauri::command]
-pub async fn toggle_window_size(app: AppHandle) -> Result<bool, String> {
-    let current_size = get_window_size(app.clone()).await?;
-    let flow_monitor_size = WindowSize::flow_monitor();
-    let default_size = WindowSize::default();
-
-    // 判断当前是否接近 Flow Monitor 大小（允许一些误差）
-    let is_flow_monitor_size = (current_size.width as i32 - flow_monitor_size.width as i32).abs()
-        < 50
-        && (current_size.height as i32 - flow_monitor_size.height as i32).abs() < 50;
-
-    if is_flow_monitor_size {
-        // 当前是 Flow Monitor 大小，切换到默认大小
-        set_window_size(app, default_size).await?;
-        Ok(false)
-    } else {
-        // 当前不是 Flow Monitor 大小，切换到 Flow Monitor 大小
-        set_window_size(app, flow_monitor_size).await?;
-        Ok(true)
-    }
 }
 
 /// 居中窗口
@@ -349,10 +257,6 @@ mod tests {
         assert_eq!(default.width, 1200);
         assert_eq!(default.height, 800);
 
-        let flow_monitor = WindowSize::flow_monitor();
-        assert_eq!(flow_monitor.width, 1600);
-        assert_eq!(flow_monitor.height, 1000);
-
         let compact = WindowSize::compact();
         assert_eq!(compact.width, 1000);
         assert_eq!(compact.height, 700);
@@ -364,20 +268,12 @@ mod tests {
         let extra_large = WindowSize::extra_large();
         assert_eq!(extra_large.width, 2560);
         assert_eq!(extra_large.height, 1440);
-
-        let ultra_wide = WindowSize::ultra_wide();
-        assert_eq!(ultra_wide.width, 3440);
-        assert_eq!(ultra_wide.height, 1440);
-
-        let four_k = WindowSize::four_k();
-        assert_eq!(four_k.width, 3840);
-        assert_eq!(four_k.height, 2160);
     }
 
     #[test]
     fn test_window_size_options() {
         let options = WindowSizeOption::all_options();
-        assert_eq!(options.len(), 7);
+        assert_eq!(options.len(), 4);
 
         // 验证每个选项都有有效的 ID 和名称
         for option in &options {

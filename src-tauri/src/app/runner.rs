@@ -989,9 +989,7 @@ pub fn run() {
             // Window control commands
             commands::window_cmd::get_window_size,
             commands::window_cmd::set_window_size,
-            commands::window_cmd::resize_for_flow_monitor,
             commands::window_cmd::restore_window_size,
-            commands::window_cmd::toggle_window_size,
             commands::window_cmd::center_window,
             commands::window_cmd::get_window_size_options,
             commands::window_cmd::set_window_size_by_option,

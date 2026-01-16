@@ -84,33 +84,6 @@ export const windowApi = {
   },
 
   /**
-   * 切换到 Flow Monitor 优化大小
-   *
-   * @returns 之前的窗口大小（用于恢复）
-   */
-  async resizeForFlowMonitor(): Promise<WindowSize> {
-    return safeInvoke("resize_for_flow_monitor");
-  },
-
-  /**
-   * 恢复窗口到指定大小
-   *
-   * @param size - 要恢复的窗口大小
-   */
-  async restoreWindowSize(size: WindowSize): Promise<void> {
-    return safeInvoke("restore_window_size", { size });
-  },
-
-  /**
-   * 切换窗口大小（在默认大小和 Flow Monitor 大小之间切换）
-   *
-   * @returns 是否切换到了 Flow Monitor 大小
-   */
-  async toggleWindowSize(): Promise<boolean> {
-    return safeInvoke("toggle_window_size");
-  },
-
-  /**
    * 居中窗口
    */
   async centerWindow(): Promise<void> {
@@ -128,20 +101,11 @@ export const WindowSizes = {
   /** 默认窗口大小 */
   default: { width: 1200, height: 800 } as WindowSize,
 
-  /** Flow Monitor 优化大小 */
-  flowMonitor: { width: 1600, height: 1000 } as WindowSize,
-
   /** 大屏模式 */
   large: { width: 1920, height: 1200 } as WindowSize,
 
   /** 超大屏模式 */
   extraLarge: { width: 2560, height: 1440 } as WindowSize,
-
-  /** 超宽屏模式 */
-  ultraWide: { width: 3440, height: 1440 } as WindowSize,
-
-  /** 4K 模式 */
-  fourK: { width: 3840, height: 2160 } as WindowSize,
 };
 
 export default windowApi;

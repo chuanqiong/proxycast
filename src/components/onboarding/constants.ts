@@ -122,7 +122,6 @@ export const STORAGE_KEYS = {
 export type WindowSizePreference =
   | "compact"
   | "default"
-  | "flow_monitor"
   | "large"
   | "fullscreen";
 
@@ -151,12 +150,6 @@ export const windowSizeOptions: WindowSizeOptionConfig[] = [
     name: "默认大小",
     description: "1200×800 - 日常使用",
     icon: Monitor,
-  },
-  {
-    id: "flow_monitor",
-    name: "Flow Monitor",
-    description: "1600×1000 - 数据展示优化",
-    icon: Activity,
   },
   {
     id: "large",
